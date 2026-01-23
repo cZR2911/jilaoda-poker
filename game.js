@@ -203,6 +203,7 @@ class Game {
                 input: document.getElementById('buyin-amount'),
                 welcome: document.getElementById('welcome-modal'),
                 nameInput: document.getElementById('player-name-input'),
+                passwordInput: document.getElementById('player-password-input'),
                 tauntOverlay: document.getElementById('taunt-overlay'),
                 tauntImg: document.getElementById('taunt-img'),
                 tauntText: document.getElementById('taunt-text')
@@ -236,6 +237,14 @@ class Game {
 
         this.setRandomAvatar();
         this.setPlayerAvatar();
+        
+        // Initialize Server Config
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        // TODO: 部署到 Render 后，请把下面的地址换成您自己的云端地址
+        const CLOUD_URL = 'https://ai-pocker-server.onrender.com'; 
+        this.serverUrl = isLocal ? 'http://localhost:8000' : CLOUD_URL;
+        this.isOnline = false;
+
         this.checkPlayerName();
         this.updateUI(); // Ensure UI matches initial state
     }
@@ -260,11 +269,61 @@ class Game {
     }
 
     checkPlayerName() {
-        if (!localStorage.getItem('poker_player_name')) {
-            this.ui.modal.welcome.style.display = 'flex';
-        } else {
+        // Always show modal for login
+        this.ui.modal.welcome.style.display = 'flex';
+        const savedName = localStorage.getItem('poker_player_name');
+        if (savedName) {
+            this.ui.modal.nameInput.value = savedName;
+        }
+    }
+
+    async login() {
+        const username = this.ui.modal.nameInput.value.trim();
+        const password = this.ui.modal.passwordInput.value.trim();
+        const btn = document.querySelector('#welcome-modal button');
+
+        if (!username || !password) {
+            alert("请输入用户名和密码！");
+            return;
+        }
+
+        // Show loading state
+        const originalText = btn.textContent;
+        btn.textContent = "连接中...";
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`${this.serverUrl}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || "登录失败");
+            }
+
+            const data = await response.json();
+            this.playerName = data.username;
+            this.playerChips = data.chips;
+            this.isOnline = true;
             this.ui.modal.welcome.style.display = 'none';
-            this.ui.playerName.textContent = this.playerName;
+            
+            localStorage.setItem('poker_player_name', username);
+            this.updateUI();
+            this.log(`欢迎回来, ${this.playerName}!`);
+
+        } catch (e) {
+            console.error("Login error:", e);
+            btn.textContent = "连接失败，进入离线模式...";
+            
+            // Auto fallback after 1 second
+            setTimeout(() => {
+                this.setPlayerName(); // Use local logic
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 1000);
         }
     }
 
@@ -606,7 +665,21 @@ class Game {
         
         this.pot = 0;
         this.ui.buttons.start.disabled = false;
+        this.syncScore();
         this.updateUI();
+    }
+
+    async syncScore() {
+        if (!this.isOnline) return;
+        try {
+            await fetch(`${this.serverUrl}/update_score`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: this.playerName, chips: this.playerChips })
+            });
+        } catch (e) {
+            console.error("Sync failed:", e);
+        }
     }
 
     getBestHand(holeCards) {

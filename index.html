@@ -79,13 +79,17 @@
     <div id="welcome-modal" class="modal">
         <div class="modal-content">
             <h2>欢迎来到德州扑克</h2>
-            <p>请输入您的名字开始游戏</p>
+            <p>登录或注册以开始游戏 (自动注册)</p>
             <div class="input-group">
-                <input type="text" id="player-name-input" placeholder="您的名字" maxlength="10">
+                <input type="text" id="player-name-input" placeholder="用户名" maxlength="10">
+            </div>
+            <div class="input-group" style="margin-top: 10px;">
+                <input type="password" id="player-password-input" placeholder="密码" maxlength="20">
             </div>
             <div class="modal-buttons">
-                <button onclick="game.setPlayerName()">开始</button>
+                <button onclick="game.login()">登录 / 注册</button>
             </div>
+            <p style="font-size: 0.8em; color: #aaa; margin-top: 10px;">第一次输入将自动注册新账号</p>
         </div>
     </div>
 
