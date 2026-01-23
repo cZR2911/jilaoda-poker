@@ -69,7 +69,7 @@ class AdminResetPassword(BaseModel):
     new_password: str
 
 # 简单的硬编码管理员密钥，实际生产环境应放在环境变量中
-ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "jilaoda_admin_123")
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "czr大帅哥")
 
 @app.get("/")
 def health_check():
