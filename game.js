@@ -240,8 +240,9 @@ class Game {
         
         // Initialize Server Config
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        // TODO: 部署到 Render 后，请把下面的地址换成您自己的云端地址
-        const CLOUD_URL = 'https://ai-pocker-server.onrender.com'; 
+        // TODO: 部署到 Vercel 后，请把下面的地址换成您自己的云端地址
+        // 例如：https://your-project-name.vercel.app
+        const CLOUD_URL = 'https://ai-pocker-server.vercel.app'; 
         this.serverUrl = isLocal ? 'http://localhost:8000' : CLOUD_URL;
         this.isOnline = false;
 
