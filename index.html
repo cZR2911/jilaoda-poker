@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 德州扑克</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1 id="game-title">德州扑克 vs 基佬大</h1>
+            <button id="btn-menu" class="menu-btn" onclick="game.toggleSidebar()">☰ 账户/设置</button>
+        </div>
+        
+        <div class="table">
+            <div class="ai-area">
+                <div class="player-info ai-info">
+                    <img id="ai-avatar" class="avatar" src="" alt="AI Avatar">
+                    <div class="info-text">
+                        <span class="name" id="ai-name">基佬大</span>
+                        <span class="chips">筹码: <span id="ai-chips">1000</span></span>
+                    </div>
+                </div>
+                <div class="cards" id="ai-cards">
+                    <!-- AI cards will go here -->
+                    <div class="card back"></div>
+                    <div class="card back"></div>
+                </div>
+                <div class="status" id="ai-status">思考中...</div>
+            </div>
+
+            <div class="center-area">
+                <div class="pot-info">
+                    <span>底池: <span id="pot-size">0</span></span>
+                    <span class="round-bet">基佬大本轮下注: <span id="ai-round-bet">0</span></span>
+                </div>
+                <div class="community-cards" id="community-cards">
+                    <!-- Community cards will go here -->
+                </div>
+                <div class="message-area" id="game-message">点击“开始游戏”</div>
+            </div>
+
+            <div class="player-area">
+                <div class="status" id="player-status"></div>
+                <div class="cards" id="player-cards">
+                    <!-- Player cards will go here -->
+                </div>
+                <div class="player-info">
+                    <img id="player-avatar" class="avatar" src="" alt="Player Avatar" onerror="this.style.display='none'">
+                    <div class="info-text">
+                        <span class="name" id="player-name">你</span>
+                        <span class="chips">筹码: <span id="player-chips">1000</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="action-buttons" id="action-buttons">
+                <button id="btn-fold" onclick="game.playerAction('fold')" disabled>弃牌</button>
+                <button id="btn-check" onclick="game.playerAction('check')" disabled>过牌</button>
+                <button id="btn-call" onclick="game.playerAction('call')" disabled>跟注</button>
+                <div class="raise-wrapper">
+                    <button id="btn-raise" onclick="game.playerAction('raise')" disabled>加注</button>
+                    <div class="raise-inputs">
+                        <input type="range" id="raise-slider" min="0" max="0" step="10" disabled oninput="game.onRaiseChange(this.value)">
+                        <span id="raise-val">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="game-controls">
+                <button id="btn-start" onclick="game.startGame()">开始游戏</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Modal -->
+    <div id="welcome-modal" class="modal">
+        <div class="modal-content">
+            <h2>欢迎来到德州扑克</h2>
+            <p>请输入您的名字开始游戏</p>
+            <div class="input-group">
+                <input type="text" id="player-name-input" placeholder="您的名字" maxlength="10">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="game.setPlayerName()">开始</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buy In Modal (Only for forced buy-in) -->
+    <div id="buyin-modal" class="modal">
+        <div class="modal-content">
+            <h2>筹码不足</h2>
+            <p>请补充筹码以继续游戏</p>
+            <div class="input-group">
+                <label for="buyin-amount">金额 (1 - 2000):</label>
+                <input type="number" id="buyin-amount" min="1" max="2000" value="200">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="game.confirmBuyIn()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Taunt Overlay -->
+    <div id="taunt-overlay" class="taunt-overlay">
+        <img id="taunt-img" src="" alt="Taunt">
+        <div id="taunt-text" class="taunt-text"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>账户管理</h2>
+            <button class="close-btn" onclick="game.toggleSidebar()">×</button>
+        </div>
+        <div class="sidebar-content">
+            <div class="sidebar-section">
+                <h3>用户设置</h3>
+                <button class="action-btn" onclick="game.resetPlayerName()">修改名字 / 切换用户</button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>当前状态</h3>
+                <div class="stat-row">
+                    <span>持有筹码:</span>
+                    <span id="sidebar-chips">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>总盈亏:</span>
+                    <span id="total-pl" class="stat-value neutral">0</span>
+                </div>
+                <div id="pl-evaluation" class="evaluation-box">
+                    <!-- Evaluation text will appear here -->
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>补充筹码</h3>
+                <div class="input-group">
+                    <input type="number" id="sidebar-buyin-amount" min="1" max="2000" value="200" placeholder="金额">
+                    <button class="action-btn" onclick="game.manualBuyIn()">买入</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                 <p class="note">注意：游戏进行中补充筹码将在下一局生效（如果当前手牌未结束）。</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
