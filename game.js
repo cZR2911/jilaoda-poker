@@ -242,7 +242,7 @@ class Game {
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         // TODO: 部署到 Vercel 后，请把下面的地址换成您自己的云端地址
         // 例如：https://your-project-name.vercel.app
-        const CLOUD_URL = 'https://ai-pocker-server.vercel.app'; 
+        const CLOUD_URL = 'https://jilaoda-poker.vercel.app'; 
         this.serverUrl = isLocal ? 'http://localhost:8000' : CLOUD_URL;
         this.isOnline = false;
 
@@ -365,6 +365,50 @@ class Game {
 
         // Update Evaluation
         this.ui.sidebar.evaluation.textContent = this.getEvaluation(currentPL);
+    }
+
+    openAdminModal() {
+        document.getElementById('admin-modal').style.display = 'flex';
+    }
+
+    async adminResetPassword() {
+        const key = document.getElementById('admin-key').value.trim();
+        const username = document.getElementById('target-username').value.trim();
+        const newPassword = document.getElementById('new-password').value.trim();
+
+        if (!key || !username || !newPassword) {
+            alert("请填写所有字段！");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.serverUrl}/admin/reset_password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    admin_key: key,
+                    target_username: username,
+                    new_password: newPassword
+                })
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.detail || "操作失败");
+            }
+
+            alert("密码重置成功！");
+            document.getElementById('admin-modal').style.display = 'none';
+            // Clear inputs
+            document.getElementById('admin-key').value = '';
+            document.getElementById('target-username').value = '';
+            document.getElementById('new-password').value = '';
+
+        } catch (e) {
+            console.error("Admin action failed:", e);
+            alert("失败: " + e.message);
+        }
     }
 
     getEvaluation(profit) {

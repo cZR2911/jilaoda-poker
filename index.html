@@ -124,6 +124,7 @@
             <div class="sidebar-section">
                 <h3>用户设置</h3>
                 <button class="action-btn" onclick="game.resetPlayerName()">修改名字 / 切换用户</button>
+                <button class="action-btn" style="margin-top: 10px;" onclick="game.openAdminModal()">管理员：重置密码</button>
             </div>
 
             <div class="sidebar-section">
@@ -151,6 +152,29 @@
 
             <div class="sidebar-section">
                  <p class="note">注意：游戏进行中补充筹码将在下一局生效（如果当前手牌未结束）。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Modal -->
+    <div id="admin-modal" class="modal">
+        <div class="modal-content">
+            <div class="sidebar-header">
+                <h2>管理员操作</h2>
+                <button class="close-btn" onclick="document.getElementById('admin-modal').style.display='none'">×</button>
+            </div>
+            <p>重置用户密码</p>
+            <div class="input-group">
+                <input type="password" id="admin-key" placeholder="管理员密钥">
+            </div>
+            <div class="input-group" style="margin-top: 10px;">
+                <input type="text" id="target-username" placeholder="目标用户名">
+            </div>
+            <div class="input-group" style="margin-top: 10px;">
+                <input type="text" id="new-password" placeholder="新密码">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="game.adminResetPassword()">确认重置</button>
             </div>
         </div>
     </div>
