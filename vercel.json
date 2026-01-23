@@ -1,5 +1,11 @@
 {
-    "rewrites": [
-      { "source": "/(login|update_score|admin/.*|health)", "destination": "/server/main.py" }
-    ]
-  }
+  "rewrites": [
+    { "source": "/login", "destination": "/api/index.py" },
+    { "source": "/update_score", "destination": "/api/index.py" },
+    { "source": "/admin/(.*)", "destination": "/api/index.py" },
+    { "source": "/health", "destination": "/api/index.py" },
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/docs", "destination": "/api/index.py" },
+    { "source": "/openapi.json", "destination": "/api/index.py" }
+  ]
+}

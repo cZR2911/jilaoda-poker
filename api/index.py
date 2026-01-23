@@ -47,11 +47,21 @@ class User(Base):
     password = Column(String)
     chips = Column(Integer, default=1000)
 
-Base.metadata.create_all(bind=engine)
+# SAFELY Create Tables
+# Wrapping this in try/except prevents the 500 Error during module import
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Warning: Database init failed (likely due to read-only FS or cold start): {e}")
 
 # Dependency
 def get_db():
     db = SessionLocal()
+    # Ensure tables exist (for ephemeral SQLite in /tmp)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except:
+        pass
     try:
         yield db
     finally:

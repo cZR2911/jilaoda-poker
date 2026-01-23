@@ -399,7 +399,7 @@ class Game {
             } else {
                 const text = await response.text();
                 console.error("Non-JSON response:", text);
-                throw new Error("服务器返回了非JSON格式的数据，可能是服务器内部错误或网络问题。");
+                throw new Error("服务器错误 (非JSON响应): " + text.substring(0, 100));
             }
             
             if (!response.ok) {
