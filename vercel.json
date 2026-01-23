@@ -1,5 +1,5 @@
 {
     "rewrites": [
-      { "source": "/(.*)", "destination": "/server/main.py" }
+      { "source": "/(login|update_score|admin/.*|health)", "destination": "/server/main.py" }
     ]
   }
