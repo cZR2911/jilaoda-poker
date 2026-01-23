@@ -392,7 +392,15 @@ class Game {
                 })
             });
 
-            const data = await response.json();
+            let data;
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                data = await response.json();
+            } else {
+                const text = await response.text();
+                console.error("Non-JSON response:", text);
+                throw new Error("服务器返回了非JSON格式的数据，可能是服务器内部错误或网络问题。");
+            }
             
             if (!response.ok) {
                 throw new Error(data.detail || "操作失败");

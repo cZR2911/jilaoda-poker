@@ -3,7 +3,6 @@ import random
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -80,8 +79,12 @@ class AdminReset(BaseModel):
 # 简单的硬编码管理员密钥，实际生产环境应放在环境变量中
 ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "czrdashuaige")
 
-@app.get("/health")
+@app.get("/api/health")
 def health_check():
+    return {"status": "ok", "message": "Poker Server is running"}
+
+@app.get("/health")
+def health_check_root():
     return {"status": "ok", "message": "Poker Server is running"}
 
 @app.post("/login", response_model=UserResponse)
@@ -122,8 +125,3 @@ def admin_reset_password(reset: AdminReset, db: Session = Depends(get_db)):
     db_user.password = reset.new_password
     db.commit()
     return {"status": "success", "message": f"用户 {reset.target_username} 密码已重置"}
-
-# Only mount static files if directory exists (for local dev)
-if os.path.exists("../index.html"):
-    # In Vercel, this might behave differently, but for local run:
-    pass
