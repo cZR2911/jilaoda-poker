@@ -18,7 +18,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -78,7 +78,7 @@ class AdminReset(BaseModel):
 
 # Config
 # 简单的硬编码管理员密钥，实际生产环境应放在环境变量中
-ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "czrdashuaige")
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "888")
 
 @app.get("/health")
 def health_check():
