@@ -295,12 +295,18 @@ class Game {
         btn.textContent = "连接中...";
         btn.disabled = true;
 
+        // AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+
         try {
             const response = await fetch(`${this.serverUrl}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password }),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             
             if (!response.ok) {
                 const err = await response.json();
