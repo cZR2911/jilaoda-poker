@@ -216,7 +216,9 @@ class Game {
                 chips: document.getElementById('sidebar-chips'),
                 pl: document.getElementById('total-pl'),
                 evaluation: document.getElementById('pl-evaluation'),
-                buyinInput: document.getElementById('sidebar-buyin-amount')
+                buyinInput: document.getElementById('sidebar-buyin-amount'),
+                username: document.getElementById('sidebar-username'),
+                status: document.getElementById('sidebar-status')
             }
         };
 
@@ -365,6 +367,21 @@ class Game {
 
         // Update Evaluation
         this.ui.sidebar.evaluation.textContent = this.getEvaluation(currentPL);
+
+        // Update Account Info
+        if (this.ui.sidebar.username) {
+             this.ui.sidebar.username.textContent = this.playerName;
+        }
+        
+        if (this.ui.sidebar.status) {
+            if (this.isOnline) {
+                this.ui.sidebar.status.textContent = "在线";
+                this.ui.sidebar.status.className = "status-badge online";
+            } else {
+                this.ui.sidebar.status.textContent = "离线";
+                this.ui.sidebar.status.className = "status-badge offline";
+            }
+        }
     }
 
     openAdminModal() {
@@ -769,6 +786,28 @@ class Game {
                 this.ui.message.innerHTML += `<br><span style="color: #e74c3c; font-weight: bold;">${randomTaunt}</span>`;
                 this.showTauntImage(randomTaunt);
             }, 500);
+        }
+    }
+
+    checkPraise() {
+        const diff = this.playerChips - this.handStartChips;
+        if (diff > 0) {
+            const profit = diff;
+            const praises = [
+                `赢了 ${profit}！今晚吃鸡！🍗`,
+                `基佬大：这波操作666，佩服！👍`,
+                `厉害啊！${profit} 筹码轻松入袋！💰`,
+                `基佬大：被你吓跑了... 🏃‍♂️`,
+                `手气不错！继续保持！🔥`,
+                `大神求带！赢了 ${profit}！🤝`
+            ];
+            // Only show praise if profit is significant or random chance
+            if (profit > 200 || Math.random() > 0.7) {
+                const randomPraise = praises[Math.floor(Math.random() * praises.length)];
+                setTimeout(() => {
+                    this.ui.message.innerHTML += `<br><span style="color: #2ecc71; font-weight: bold;">${randomPraise}</span>`;
+                }, 500);
+            }
         }
     }
 

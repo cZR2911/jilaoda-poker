@@ -562,3 +562,23 @@ button:disabled {
     text-align: center;
     margin: 5px 0;
 }
+
+/* Status Badge Styles */
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    font-weight: bold;
+    display: inline-block;
+}
+
+.status-badge.online {
+    background-color: #2ecc71;
+    color: white;
+    box-shadow: 0 0 5px #2ecc71;
+}
+
+.status-badge.offline {
+    background-color: #95a5a6;
+    color: white;
+}

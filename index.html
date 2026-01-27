@@ -122,6 +122,18 @@
         </div>
         <div class="sidebar-content">
             <div class="sidebar-section">
+                <h3>账户信息</h3>
+                <div class="stat-row">
+                    <span>用户名:</span>
+                    <span id="sidebar-username" style="font-weight: bold;">--</span>
+                </div>
+                <div class="stat-row">
+                    <span>网络状态:</span>
+                    <span id="sidebar-status" class="status-badge offline">离线</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
                 <h3>用户设置</h3>
                 <button class="action-btn" onclick="game.resetPlayerName()">修改名字 / 切换用户</button>
                 <button class="action-btn" style="margin-top: 10px;" onclick="game.openAdminModal()">管理员：重置密码</button>
