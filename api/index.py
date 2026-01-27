@@ -1,6 +1,7 @@
 import os
 import random
-from typing import Optional
+import uuid
+from typing import Optional, List
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -41,6 +42,15 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     password = Column(String)
     chips = Column(Integer, default=1000)
+
+class Room(Base):
+    __tablename__ = "rooms"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4())[:8])
+    name = Column(String)
+    host = Column(String)
+    status = Column(String, default='waiting')
+    player1 = Column(String) # Host
+    player2 = Column(String, nullable=True) # Challenger
 
 # SAFELY Create Tables
 # Wrapping this in try/except prevents the 500 Error during module import
@@ -87,6 +97,21 @@ class UserResponse(BaseModel):
 class ScoreUpdate(BaseModel):
     username: str
     chips: int
+
+class RoomCreate(BaseModel):
+    username: str
+    room_name: str
+
+class RoomJoin(BaseModel):
+    username: str
+    room_id: str
+
+class RoomList(BaseModel):
+    id: str
+    name: str
+    host: str
+    status: str # 'waiting', 'playing'
+    players: int
 
 class AdminReset(BaseModel):
     admin_key: str
@@ -160,3 +185,50 @@ def admin_reset_password(reset: AdminReset, db: Session = Depends(get_db)):
     db_user.password = reset.new_password
     db.commit()
     return {"status": "success", "message": f"用户 {reset.target_username} 密码已重置"}
+
+# Room Endpoints
+@app.get("/rooms", response_model=List[RoomList])
+def get_rooms(db: Session = Depends(get_db)):
+    rooms = db.query(Room).filter(Room.status == 'waiting').all()
+    return [
+        RoomList(
+            id=r.id, 
+            name=r.name, 
+            host=r.host, 
+            status=r.status, 
+            players=1 if not r.player2 else 2
+        ) 
+        for r in rooms
+    ]
+
+@app.post("/rooms/create")
+def create_room(data: RoomCreate, db: Session = Depends(get_db)):
+    # Clean up old rooms by this user
+    db.query(Room).filter(Room.host == data.username).delete()
+    
+    new_room = Room(
+        name=data.room_name,
+        host=data.username,
+        player1=data.username
+    )
+    db.add(new_room)
+    db.commit()
+    db.refresh(new_room)
+    return {"room_id": new_room.id, "message": "Room created"}
+
+@app.post("/rooms/join")
+def join_room(data: RoomJoin, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == data.room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    if room.status != 'waiting':
+        raise HTTPException(status_code=400, detail="Room is full or playing")
+        
+    if room.player1 == data.username:
+        return {"message": "Rejoined own room", "role": "host"}
+        
+    room.player2 = data.username
+    room.status = 'playing'
+    db.commit()
+    return {"message": "Joined room", "role": "guest"}

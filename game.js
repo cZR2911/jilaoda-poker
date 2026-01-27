@@ -330,6 +330,9 @@ class Game {
                 this.log(`开发者模式已激活!`);
             }
 
+            // Show Main Menu instead of jumping to game
+            this.showMainMenu();
+
         } catch (e) {
             console.error("Login error:", e);
             btn.textContent = "连接失败，进入离线模式...";
@@ -339,7 +342,126 @@ class Game {
                 this.setPlayerName(); // Use local logic
                 btn.textContent = originalText;
                 btn.disabled = false;
+                
+                // Even in offline mode, show menu (but multiplayer will be disabled visually or functional-wise)
+                this.showMainMenu();
             }, 1000);
+        }
+    }
+
+    showMainMenu() {
+        document.getElementById('welcome-modal').style.display = 'none';
+        document.getElementById('main-menu').style.display = 'flex';
+        document.getElementById('game-ui').style.display = 'none';
+        
+        document.getElementById('lobby-username').textContent = this.playerName;
+        document.getElementById('lobby-chips').textContent = `💰 ${this.playerChips}`;
+    }
+
+    startVsAI() {
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'block';
+        this.log(`准备开始人机对战...`);
+    }
+
+    openMultiplayerLobby() {
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('multiplayer-lobby').style.display = 'flex';
+        this.refreshRooms();
+    }
+
+    backToMainMenu() {
+        document.getElementById('multiplayer-lobby').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'none';
+        document.getElementById('main-menu').style.display = 'flex';
+    }
+
+    async refreshRooms() {
+        const list = document.getElementById('room-list');
+        list.innerHTML = '<div class="empty-state">加载中...</div>';
+        
+        try {
+            if (!this.isOnline) {
+                throw new Error("离线模式无法连接多人大厅");
+            }
+            const response = await fetch(`${this.serverUrl}/rooms`);
+            if (!response.ok) throw new Error("无法获取房间列表");
+            
+            const rooms = await response.json();
+            list.innerHTML = '';
+            
+            if (rooms.length === 0) {
+                list.innerHTML = '<div class="empty-state">暂无房间，快去创建一个吧！</div>';
+                return;
+            }
+
+            rooms.forEach(room => {
+                const el = document.createElement('div');
+                el.className = `room-item ${room.players >= 2 ? 'full' : ''}`;
+                el.innerHTML = `
+                    <div class="room-info">
+                        <h4>${room.name}</h4>
+                        <p>房主: ${room.host} | 状态: ${room.status === 'waiting' ? '等待中' : '游戏中'}</p>
+                    </div>
+                    <button class="action-btn" onclick="game.joinRoom('${room.id}')" ${room.players >= 2 ? 'disabled' : ''}>
+                        ${room.players >= 2 ? '已满' : '加入'}
+                    </button>
+                `;
+                list.appendChild(el);
+            });
+
+        } catch (e) {
+            list.innerHTML = `<div class="empty-state" style="color: #e74c3c;">Error: ${e.message}</div>`;
+        }
+    }
+
+    async createRoom() {
+        const name = prompt("请输入房间名称:", `${this.playerName} 的房间`);
+        if (!name) return;
+
+        try {
+            const response = await fetch(`${this.serverUrl}/rooms/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: this.playerName, room_name: name })
+            });
+            
+            if (!response.ok) throw new Error("创建失败");
+            
+            const data = await response.json();
+            alert(`房间创建成功！ID: ${data.room_id}`);
+            this.joinRoom(data.room_id); // Auto join own room
+        } catch (e) {
+            alert("创建房间失败: " + e.message);
+        }
+    }
+
+    async joinRoom(roomId) {
+        try {
+            const response = await fetch(`${this.serverUrl}/rooms/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: this.playerName, room_id: roomId })
+            });
+            
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || "加入失败");
+            }
+
+            const data = await response.json();
+            alert(`成功加入房间！身份: ${data.role === 'host' ? '房主' : '挑战者'}`);
+            
+            // Start Multiplayer Game UI (For now, just jump to AI game UI but with a label)
+            document.getElementById('multiplayer-lobby').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'block';
+            
+            // TODO: Real multiplayer logic
+            this.log(`[多人模式] 已进入房间。等待对手或开始游戏... (当前为演示模式，仍是 AI)`);
+            this.ui.gameTitle.textContent = `多人对战 (演示版)`;
+            
+        } catch (e) {
+            alert("加入房间失败: " + e.message);
         }
     }
 

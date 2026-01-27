@@ -303,6 +303,115 @@ button {
     background-color: #2ecc71;
 }
 
+/* Modal Buttons */
+.modal-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* Mode Selection Cards */
+.mode-selection {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.mode-card {
+    background: linear-gradient(145deg, #34495e, #2c3e50);
+    padding: 20px;
+    border-radius: 15px;
+    width: 200px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid #465c71;
+    text-align: center;
+}
+
+.mode-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+    border-color: #f1c40f;
+}
+
+.mode-card h3 {
+    color: #f1c40f;
+    margin-bottom: 10px;
+}
+
+.status-text {
+    font-size: 0.8em;
+    color: #95a5a6;
+    margin-top: 15px;
+}
+
+/* Room List */
+.room-list {
+    background: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    padding: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+    min-height: 200px;
+}
+
+.room-item {
+    background: #34495e;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid #3498db;
+}
+
+.room-item.full {
+    border-left-color: #e74c3c;
+    opacity: 0.7;
+}
+
+.room-info h4 {
+    margin: 0 0 5px 0;
+    color: #ecf0f1;
+}
+
+.room-info p {
+    margin: 0;
+    font-size: 0.8em;
+    color: #bdc3c7;
+}
+
+.action-btn {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.action-btn:hover {
+    background: #2ecc71;
+}
+
+.secondary-btn {
+    background: #7f8c8d;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.empty-state {
+    text-align: center;
+    color: #7f8c8d;
+    padding: 40px;
+}
+
 /* Mobile Adjustments */
 /* Menu Button */
 .menu-btn {

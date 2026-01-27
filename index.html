@@ -93,6 +93,51 @@
         </div>
     </div>
 
+    <!-- Main Menu (Lobby) -->
+    <div id="main-menu" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <h2>🎮 选择游戏模式</h2>
+            <div class="user-info-display" style="margin-bottom: 20px; color: #f1c40f;">
+                欢迎, <span id="lobby-username">玩家</span>! 
+                <span id="lobby-chips">💰 0</span>
+            </div>
+            
+            <div class="mode-selection">
+                <div class="mode-card" onclick="game.startVsAI()">
+                    <h3>🤖 人机对战</h3>
+                    <p>挑战高智商 AI "基佬大"</p>
+                    <p class="status-text">随时开局 | 练习技术</p>
+                </div>
+                
+                <div class="mode-card" onclick="game.openMultiplayerLobby()">
+                    <h3>👥 多人对战</h3>
+                    <p>创建房间或加入好友</p>
+                    <p class="status-text">实时对战 | 激情博弈</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multiplayer Lobby (Room List) -->
+    <div id="multiplayer-lobby" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="lobby-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>🏠 游戏大厅</h2>
+                <button onclick="game.backToMainMenu()" class="secondary-btn">返回</button>
+            </div>
+            
+            <div class="lobby-actions" style="margin-bottom: 20px; display: flex; gap: 10px;">
+                <button onclick="game.createRoom()" class="action-btn">➕ 创建房间</button>
+                <button onclick="game.refreshRooms()" class="action-btn">🔄 刷新列表</button>
+            </div>
+
+            <div id="room-list" class="room-list">
+                <!-- Rooms will be populated here -->
+                <div class="empty-state">正在获取房间列表...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Buy In Modal (Only for forced buy-in) -->
     <div id="buyin-modal" class="modal">
         <div class="modal-content">
