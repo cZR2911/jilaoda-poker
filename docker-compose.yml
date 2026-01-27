@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ADMIN_SECRET_KEY=888
+      # Use a volume for SQLite persistence if not using external DB
+      - DATABASE_URL=sqlite:////app/data/poker.db
+    volumes:
+      - ./data:/app/data
+    restart: always
