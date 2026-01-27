@@ -311,11 +311,18 @@ class Game {
             this.playerName = data.username;
             this.playerChips = data.chips;
             this.isOnline = true;
+            this.isDev = data.is_dev || false; // Developer Mode Flag
             this.ui.modal.welcome.style.display = 'none';
             
             localStorage.setItem('poker_player_name', username);
             this.updateUI();
             this.log(`欢迎回来, ${this.playerName}!`);
+
+            // Initialize Cheat UI if in Dev Mode
+            if (this.isDev) {
+                this.initCheatUI();
+                this.log(`开发者模式已激活!`);
+            }
 
         } catch (e) {
             console.error("Login error:", e);
@@ -328,6 +335,111 @@ class Game {
                 btn.disabled = false;
             }, 1000);
         }
+    }
+
+    initCheatUI() {
+        if (document.getElementById('cheat-btn')) return;
+
+        // Hidden Cheat Button (Bottom Left, semi-transparent)
+        const btn = document.createElement('button');
+        btn.id = 'cheat-btn';
+        btn.textContent = 'π'; // Subtle symbol
+        btn.style.position = 'fixed';
+        btn.style.bottom = '10px';
+        btn.style.left = '10px';
+        btn.style.opacity = '0.1';
+        btn.style.zIndex = '9999';
+        btn.style.background = 'black';
+        btn.style.color = 'red';
+        btn.style.border = 'none';
+        btn.style.fontSize = '20px';
+        btn.style.cursor = 'pointer';
+        
+        btn.onmouseover = () => btn.style.opacity = '1';
+        btn.onmouseout = () => btn.style.opacity = '0.1';
+        
+        btn.onclick = () => this.toggleCheatMenu();
+        document.body.appendChild(btn);
+
+        // Cheat Menu
+        const menu = document.createElement('div');
+        menu.id = 'cheat-menu';
+        menu.style.display = 'none';
+        menu.style.position = 'fixed';
+        menu.style.bottom = '50px';
+        menu.style.left = '10px';
+        menu.style.background = 'rgba(0,0,0,0.9)';
+        menu.style.padding = '10px';
+        menu.style.borderRadius = '5px';
+        menu.style.zIndex = '9999';
+        menu.style.border = '1px solid red';
+        menu.style.color = '#0f0';
+        menu.style.fontFamily = 'monospace';
+
+        const cheats = [
+            { name: '👀 透视 AI 手牌', action: () => this.toggleAiCards() },
+            { name: '💰 +100万 筹码', action: () => this.cheatAddChips() },
+            { name: '🏆 强制获胜 (AI弃牌)', action: () => this.cheatWin() },
+            { name: '🃏 发好牌给自己 (AA)', action: () => this.cheatGoodHand() }
+        ];
+
+        cheats.forEach(c => {
+            const b = document.createElement('div');
+            b.textContent = `> ${c.name}`;
+            b.style.cursor = 'pointer';
+            b.style.margin = '5px 0';
+            b.onclick = () => {
+                c.action();
+                this.log(`[DEV] Executed: ${c.name}`);
+            };
+            b.onmouseover = () => b.style.color = 'white';
+            b.onmouseout = () => b.style.color = '#0f0';
+            menu.appendChild(b);
+        });
+
+        document.body.appendChild(menu);
+    }
+
+    toggleCheatMenu() {
+        const menu = document.getElementById('cheat-menu');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+
+    toggleAiCards() {
+        const aiCards = document.querySelectorAll('#ai-cards .card');
+        aiCards.forEach((el, idx) => {
+            if (el.classList.contains('back')) {
+                el.classList.remove('back');
+                const card = this.aiCards[idx];
+                el.className = `card ${card.getColor()}`;
+                el.textContent = card.toString();
+            } else {
+                 // Re-hide logic is complex because updateUI overwrites it, 
+                 // but for a toggle we can just force updateUI to re-render hidden
+                 this.updateUI();
+            }
+        });
+    }
+
+    cheatAddChips() {
+        this.playerChips += 1000000;
+        this.updateUI();
+        this.updatePLDisplay();
+    }
+
+    cheatWin() {
+        this.endHand('player');
+    }
+
+    cheatGoodHand() {
+        // Only works before hand starts or just resets hand
+        this.deck.reset();
+        // Force AA
+        this.playerCards = [new Card('s', 14), new Card('h', 14)]; 
+        // Deal rest normally
+        this.aiCards = [this.deck.deal(), this.deck.deal()];
+        this.updateUI();
+        this.log("[DEV] God Hand Dealt (AA)");
     }
 
     setPlayerName() {
