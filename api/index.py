@@ -28,12 +28,7 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 if not DATABASE_URL:
-    # Use SQLite for local development
-    # Note: SQLite in Vercel is read-only or ephemeral. For persistence, use Postgres (Supabase/Neon)
-    if os.environ.get("VERCEL"):
-        DATABASE_URL = "sqlite:////tmp/poker.db"
-    else:
-        DATABASE_URL = "sqlite:///./poker.db"
+    DATABASE_URL = "sqlite:////tmp/poker.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
