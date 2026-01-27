@@ -582,3 +582,14 @@ button:disabled {
     background-color: #95a5a6;
     color: white;
 }
+
+/* Version Display */
+.version-display {
+    position: fixed;
+    bottom: 5px;
+    right: 5px;
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+    z-index: 50;
+}
