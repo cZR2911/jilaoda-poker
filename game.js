@@ -274,6 +274,10 @@ class Game {
     checkPlayerName() {
         // Always show modal for login
         this.ui.modal.welcome.style.display = 'flex';
+        // Hide game UI initially to avoid confusion
+        const gameUI = document.getElementById('game-ui');
+        if (gameUI) gameUI.style.display = 'none';
+
         const savedName = localStorage.getItem('poker_player_name');
         if (savedName) {
             this.ui.modal.nameInput.value = savedName;
