@@ -2,8 +2,6 @@ import os
 import random
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Depends
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String
@@ -15,21 +13,6 @@ load_dotenv()
 
 app = FastAPI()
 
-# Mount Static Files (For Standalone/Docker Mode)
-# Check if static files exist (to avoid errors in Vercel environment where structure might differ)
-if os.path.exists("index.html"):
-    # Serve specific files at root for cleaner URLs
-    @app.get("/style.css")
-    async def get_css():
-        return FileResponse("style.css")
-    
-    @app.get("/game.js")
-    async def get_js():
-        return FileResponse("game.js")
-        
-    # Serve images and other assets
-    app.mount("/", StaticFiles(directory="."), name="static")
-
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -38,13 +21,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Root Endpoint for Standalone Mode
-@app.get("/")
-async def read_root():
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
-    return {"message": "Poker API is running (Vercel Mode)"}
 
 # Database Configuration
 DATABASE_URL = os.getenv("DATABASE_URL")

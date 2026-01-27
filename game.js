@@ -240,21 +240,12 @@ class Game {
         this.setRandomAvatar();
         this.setPlayerAvatar();
         
-        // Host Mode / Local LAN Config
-        this.serverUrl = window.location.origin; // Default to current origin
-        const savedServer = localStorage.getItem('poker_server_url');
-        
-        if (savedServer) {
-            this.serverUrl = savedServer;
-            console.log(`Using custom server URL: ${this.serverUrl}`);
-        } else {
-             // Auto-detect for local dev
-            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            if (isLocal && window.location.port !== '8000') {
-                this.serverUrl = 'http://localhost:8000'; // CORS mode for Live Server
-            }
-        }
-        
+        // Initialize Server Config
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        // TODO: 部署到 Vercel 后，请把下面的地址换成您自己的云端地址
+        // 例如：https://your-project-name.vercel.app
+        const CLOUD_URL = 'https://jilaoda-poker.vercel.app'; 
+        this.serverUrl = isLocal ? 'http://localhost:8000' : CLOUD_URL;
         this.isOnline = false;
 
         this.checkPlayerName();
@@ -286,37 +277,6 @@ class Game {
         const savedName = localStorage.getItem('poker_player_name');
         if (savedName) {
             this.ui.modal.nameInput.value = savedName;
-        }
-
-        // Add Server Config Button if not exists
-        if (!document.getElementById('server-config-btn')) {
-            const btn = document.createElement('button');
-            btn.id = 'server-config-btn';
-            btn.textContent = '⚙️ 服务器设置';
-            btn.style.marginTop = '10px';
-            btn.style.backgroundColor = '#7f8c8d';
-            btn.style.fontSize = '0.9em';
-            btn.onclick = () => this.openServerConfig();
-            this.ui.modal.welcome.querySelector('.modal-content').appendChild(btn);
-        }
-    }
-
-    openServerConfig() {
-        const current = localStorage.getItem('poker_server_url') || '';
-        const ip = prompt("请输入主机 IP 地址 (例如 http://192.168.1.5:8000)\n留空则使用默认配置。", current);
-        if (ip !== null) {
-            if (ip.trim() === '') {
-                localStorage.removeItem('poker_server_url');
-                alert("已恢复默认服务器配置。请刷新页面。");
-            } else {
-                let url = ip.trim();
-                if (!url.startsWith('http')) url = 'http://' + url;
-                if (!url.includes(':') && !url.includes('vercel')) url += ':8000'; // Assume port 8000 if local
-                
-                localStorage.setItem('poker_server_url', url);
-                alert(`服务器地址已设置为: ${url}\n请刷新页面生效。`);
-            }
-            location.reload();
         }
     }
 
