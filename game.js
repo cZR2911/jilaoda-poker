@@ -356,6 +356,20 @@ class Game {
         
         document.getElementById('lobby-username').textContent = this.playerName;
         document.getElementById('lobby-chips').textContent = `💰 ${this.playerChips}`;
+
+        // Handle Offline State for Multiplayer Card
+        const mpCard = document.getElementById('mode-multiplayer');
+        if (mpCard) {
+            if (!this.isOnline) {
+                mpCard.classList.add('disabled');
+                mpCard.querySelector('h3').textContent = '👥 多人对战 (离线)';
+                mpCard.querySelector('.status-text').textContent = '需连接服务器';
+            } else {
+                mpCard.classList.remove('disabled');
+                mpCard.querySelector('h3').textContent = '👥 多人对战';
+                mpCard.querySelector('.status-text').textContent = '实时对战 | 激情博弈';
+            }
+        }
     }
 
     startVsAI() {
@@ -575,6 +589,21 @@ class Game {
         if (name) {
             this.playerName = name;
             localStorage.setItem('poker_player_name', name);
+            
+            // Load offline chips if available
+            const savedChips = localStorage.getItem('poker_player_chips');
+            if (savedChips) {
+                this.playerChips = parseInt(savedChips);
+            } else {
+                this.playerChips = 1000; // Default if no save
+            }
+            
+            // Load total buy-in to keep PL consistent
+            const savedBuyIn = localStorage.getItem('poker_player_buyin');
+            if (savedBuyIn) {
+                this.totalBuyIn = parseInt(savedBuyIn);
+            }
+
             this.ui.modal.welcome.style.display = 'none';
             this.updateUI();
         } else {
@@ -593,6 +622,10 @@ class Game {
     }
 
     updatePLDisplay() {
+        // Save chips locally for offline persistence
+        localStorage.setItem('poker_player_chips', this.playerChips);
+        localStorage.setItem('poker_player_buyin', this.totalBuyIn);
+
         // Net Profit = Current Chips - Total Buy-ins
         const currentPL = this.playerChips - this.totalBuyIn;
         
