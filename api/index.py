@@ -47,20 +47,32 @@ class User(Base):
 try:
     Base.metadata.create_all(bind=engine)
 except Exception as e:
-    print(f"Warning: Database init failed (likely due to read-only FS or cold start): {e}")
+    try:
+        # Fallback to in-memory if /tmp is not writable in current region
+        fallback_url = "sqlite:///:memory:"
+        engine = create_engine(fallback_url, connect_args={"check_same_thread": False})
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        Base.metadata.create_all(bind=engine)
+        print(f"Fallback to in-memory SQLite due to init error: {e}")
+    except Exception as e2:
+        print(f"Critical DB init failure: {e2}")
 
 # Dependency
 def get_db():
     db = SessionLocal()
-    # Ensure tables exist (for ephemeral SQLite in /tmp)
     try:
         Base.metadata.create_all(bind=engine)
-    except:
+    except Exception:
         pass
     try:
         yield db
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"数据库会话错误: {str(e)[:200]}")
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass
 
 # Pydantic Schemas
 class UserLogin(BaseModel):
