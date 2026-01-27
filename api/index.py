@@ -99,19 +99,23 @@ def health_check_root():
 
 @app.post("/login", response_model=UserResponse)
 def login(user: UserLogin, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.username == user.username).first()
-    if not db_user:
-        # Register new user
-        new_user = User(username=user.username, password=user.password, chips=1000)
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        return UserResponse(username=new_user.username, chips=new_user.chips)
-    
-    if db_user.password != user.password:
-        raise HTTPException(status_code=400, detail="密码错误")
-    
-    return UserResponse(username=db_user.username, chips=db_user.chips)
+    try:
+        db_user = db.query(User).filter(User.username == user.username).first()
+        if not db_user:
+            new_user = User(username=user.username, password=user.password, chips=1000)
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            return UserResponse(username=new_user.username, chips=new_user.chips)
+        
+        if db_user.password != user.password:
+            raise HTTPException(status_code=400, detail="密码错误")
+        
+        return UserResponse(username=db_user.username, chips=db_user.chips)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"服务器错误: {str(e)[:200]}")
 
 @app.post("/update_score")
 def update_score(update: ScoreUpdate, db: Session = Depends(get_db)):
