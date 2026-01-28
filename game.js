@@ -483,7 +483,7 @@ class Game {
             }
 
             const data = await response.json();
-            alert(`成功加入房间！身份: ${data.role === 'host' ? '房主' : '挑战者'}`);
+            alert(`成功加入房间！身份: ${data.role === 'host' ? '房主' : '玩家'}`);
             
             // Switch to Multiplayer Mode
             this.mode = 'multi';
@@ -494,11 +494,26 @@ class Game {
             document.getElementById('game-ui').style.display = 'block';
             
             this.ui.gameTitle.textContent = `多人对战 (${this.roomId})`;
-            this.ui.aiName.textContent = "等待对手...";
-            this.ui.aiAvatar.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=Waiting";
             
+            // Clear single player AI area and show table
+            document.getElementById('ai-area').style.display = 'none';
+            
+            // Create or Show Table Area
+            let tableArea = document.getElementById('poker-table-area');
+            if (!tableArea) {
+                tableArea = document.createElement('div');
+                tableArea.id = 'poker-table-area';
+                tableArea.className = 'poker-table-area';
+                // Insert before community cards or replace main area
+                // For simplicity, let's append to game-ui main container and style it absolute
+                const container = document.querySelector('.game-container');
+                container.insertBefore(tableArea, document.getElementById('community-cards-container'));
+            }
+            tableArea.style.display = 'block';
+            tableArea.innerHTML = ''; // Clear previous
+
             // Disable AI Logic
-            this.log(`[多人模式] 已进入房间。等待对手加入...`);
+            this.log(`[多人模式] 已进入房间。等待玩家加入...`);
             
             // Start Polling
             this.startMultiplayerPolling();
@@ -506,6 +521,69 @@ class Game {
         } catch (e) {
             alert("加入房间失败: " + e.message);
         }
+    }
+
+    renderMultiplayerTable(players) {
+        const tableArea = document.getElementById('poker-table-area');
+        if (!tableArea) return;
+        
+        tableArea.innerHTML = ''; // Clear and redraw
+        
+        // Calculate positions for up to 10 players
+        // We are at bottom (index 0 relative to us). 
+        // Others are arranged in a circle.
+        
+        const totalSeats = 10;
+        const centerX = 50; // %
+        const centerY = 50; // %
+        const radiusX = 40; // %
+        const radiusY = 35; // %
+        
+        // Find my index to rotate table so I am at bottom
+        const myIndex = players.indexOf(this.playerName);
+        const mySeatIndex = myIndex === -1 ? 0 : myIndex; // If spectator, 0
+        
+        players.forEach((p, i) => {
+            if (p === this.playerName) return; // Don't render self on table (self is at bottom fixed UI)
+            
+            // Calculate relative position
+            // Seat 0 is bottom. Seat 5 is top.
+            // If I am seat 2, I want seat 2 to be at bottom.
+            // visualIndex = (i - mySeatIndex + totalSeats) % totalSeats
+            // Wait, we want to distribute 'players.length' players? Or fixed 10 seats?
+            // Let's use fixed 10 seats logic for visual stability.
+            // But we don't know seat numbers yet, just order of joining.
+            // Let's assume order of joining = seat number for now.
+            
+            const relativeIndex = (i - mySeatIndex + totalSeats) % totalSeats;
+            
+            // Angle: Start from bottom (90 deg) and go clockwise? 
+            // Standard CSS coords: 0 is right, 90 is down.
+            // We want bottom to be 90deg.
+            // 10 players -> 36deg per player.
+            const angleDeg = 90 + (relativeIndex * (360 / totalSeats));
+            const angleRad = angleDeg * (Math.PI / 180);
+            
+            const x = centerX + radiusX * Math.cos(angleRad);
+            const y = centerY + radiusY * Math.sin(angleRad);
+            
+            const seat = document.createElement('div');
+            seat.className = 'table-seat';
+            seat.style.left = `${x}%`;
+            seat.style.top = `${y}%`;
+            
+            seat.innerHTML = `
+                <div class="seat-avatar">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${p}" alt="${p}">
+                </div>
+                <div class="seat-info">
+                    <div class="seat-name">${p}</div>
+                    <div class="seat-chips">???</div>
+                </div>
+            `;
+            
+            tableArea.appendChild(seat);
+        });
     }
 
     async startMultiplayerPolling() {
@@ -519,21 +597,18 @@ class Game {
                 if (!res.ok) return;
                 const status = await res.json();
                 
-                // Update Opponent Info
-                if (status.player2 && this.role === 'host') {
-                    if (this.ui.aiName.textContent !== status.player2) {
-                        this.ui.aiName.textContent = status.player2;
-                        this.log(`玩家 ${status.player2} 已加入！`);
-                        this.ui.aiAvatar.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + status.player2;
-                    }
-                } else if (status.player1 && this.role === 'guest') {
-                    if (this.ui.aiName.textContent !== status.player1) {
-                        this.ui.aiName.textContent = status.player1;
-                        this.ui.aiAvatar.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + status.player1;
-                    }
-                }
+                // Update Title
+                this.ui.gameTitle.textContent = `多人对战 (ID:${status.id}) - ${status.player_count}/10人`;
                 
-                // TODO: Sync Game State (chips, cards, etc.)
+                // Render Table
+                this.renderMultiplayerTable(status.players);
+                
+                // Log new players
+                // (Simplified: just log count change)
+                if (this.lastPlayerCount && status.player_count > this.lastPlayerCount) {
+                     this.log(`新玩家加入！当前人数: ${status.player_count}`);
+                }
+                this.lastPlayerCount = status.player_count;
                 
             } catch (e) {
                 console.error("Polling error:", e);

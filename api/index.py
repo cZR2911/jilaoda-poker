@@ -1,6 +1,7 @@
 import os
 import random
 import uuid
+import json
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,10 +50,12 @@ class Room(Base):
     name = Column(String)
     host = Column(String)
     status = Column(String, default='waiting')
-    player1 = Column(String) # Host
-    player2 = Column(String, nullable=True) # Challenger
-    game_state = Column(String, nullable=True) # JSON String of current game state
-    last_action = Column(String, nullable=True) # JSON String of last action taken
+    player1 = Column(String) # Host (Kept for backward compatibility)
+    player2 = Column(String, nullable=True) # (Deprecated/Legacy)
+    players_json = Column(String, default="[]") # JSON list of usernames
+    max_players = Column(Integer, default=10)
+    game_state = Column(String, nullable=True)
+    last_action = Column(String, nullable=True)
 
 # SAFELY Create Tables
 # Wrapping this in try/except prevents the 500 Error during module import
@@ -211,7 +214,9 @@ def create_room(data: RoomCreate, db: Session = Depends(get_db)):
     new_room = Room(
         name=data.room_name,
         host=data.username,
-        player1=data.username
+        player1=data.username,
+        players_json=json.dumps([data.username]),
+        max_players=10
     )
     db.add(new_room)
     db.commit()
@@ -224,16 +229,34 @@ def join_room(data: RoomJoin, db: Session = Depends(get_db)):
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     
+    # Check if already joined
+    players = json.loads(room.players_json) if room.players_json else []
+    
+    if data.username in players:
+        return {"message": "Rejoined room", "role": "host" if data.username == room.host else "guest", "players": players}
+    
+    if len(players) >= room.max_players:
+         raise HTTPException(status_code=400, detail="Room is full")
+         
     if room.status != 'waiting':
-        raise HTTPException(status_code=400, detail="Room is full or playing")
+        # Allow rejoin if already in list (handled above), otherwise block
+        raise HTTPException(status_code=400, detail="Game already started")
+
+    # Add player
+    players.append(data.username)
+    room.players_json = json.dumps(players)
+    
+    # Legacy support
+    if not room.player2 and data.username != room.host:
+        room.player2 = data.username
         
-    if room.player1 == data.username:
-        return {"message": "Rejoined own room", "role": "host"}
-        
-    room.player2 = data.username
-    room.status = 'playing'
+    # Only change status if full? No, let host start game manually.
+    # But for now, let's keep 'waiting' until host starts.
+    # Previous logic set 'playing' on 2nd player. We should remove that auto-start.
+    # room.status = 'playing' 
+    
     db.commit()
-    return {"message": "Joined room", "role": "guest"}
+    return {"message": "Joined room", "role": "guest", "players": players}
 
 @app.get("/rooms/{room_id}/status")
 def get_room_status(room_id: str, db: Session = Depends(get_db)):
@@ -241,11 +264,15 @@ def get_room_status(room_id: str, db: Session = Depends(get_db)):
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     
+    players = json.loads(room.players_json) if room.players_json else []
+    
     return {
         "id": room.id,
         "status": room.status,
-        "player1": room.player1,
-        "player2": room.player2,
+        "host": room.host,
+        "players": players,
+        "player_count": len(players),
+        "max_players": room.max_players,
         "game_state": room.game_state,
         "last_action": room.last_action
     }
