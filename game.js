@@ -434,6 +434,11 @@ class Game {
     }
 
     async createRoom() {
+        if (!this.isOnline) {
+            alert("请先连接网络（或登录）再创建房间。");
+            return;
+        }
+
         const name = prompt("请输入房间名称:", `${this.playerName} 的房间`);
         if (!name) return;
 
@@ -444,13 +449,23 @@ class Game {
                 body: JSON.stringify({ username: this.playerName, room_name: name })
             });
             
-            if (!response.ok) throw new Error("创建失败");
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || "创建失败");
+            }
             
             const data = await response.json();
             alert(`房间创建成功！ID: ${data.room_id}`);
             this.joinRoom(data.room_id); // Auto join own room
         } catch (e) {
+            console.error("Create Room Error:", e);
             alert("创建房间失败: " + e.message);
+        }
+    }
+
+    exitGame() {
+        if (confirm("确定要退出当前游戏吗？")) {
+            this.showMainMenu();
         }
     }
 

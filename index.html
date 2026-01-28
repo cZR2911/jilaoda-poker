@@ -9,8 +9,9 @@
 <body>
     <div id="game-ui" class="game-container">
         <div class="header">
-            <h1 id="game-title">德州扑克 vs 基佬大</h1>
-            <button id="btn-menu" class="menu-btn" onclick="game.toggleSidebar()">☰ 账户/设置</button>
+            <button id="btn-exit" class="menu-btn" style="margin-right: 10px;" onclick="game.exitGame()">🔙 退出</button>
+            <h1 id="game-title" style="flex-grow: 1; text-align: center;">德州扑克 vs 基佬大</h1>
+            <button id="btn-menu" class="menu-btn" onclick="game.toggleSidebar()">☰ 账户</button>
         </div>
         
         <div class="table">
