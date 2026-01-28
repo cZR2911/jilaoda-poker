@@ -409,10 +409,12 @@ def start_game(room_id: str, data: dict, db: Session = Depends(get_db)):
         "phase": "preflop",
         "pot": 0,
         "current_bet": 0,
-        "turn_index": 0, # Host starts? Or Big Blind? For now, index 0.
+        "turn_index": 0, 
+        "last_aggressor_index": -1, # Who last raised
+        "acted_count": 0, # How many players acted in current round
         "community_cards": [],
         "players": game_players,
-        "deck": deck # Store remaining deck
+        "deck": deck 
     }
     
     room.status = 'playing'
@@ -440,28 +442,64 @@ def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(g
         current_player['is_folded'] = True
     elif action_data.action == 'call':
         diff = gs['current_bet'] - current_player['current_bet']
+        if current_player['chips'] < diff:
+            raise HTTPException(status_code=400, detail="筹码不足")
         current_player['chips'] -= diff
         current_player['current_bet'] += diff
         gs['pot'] += diff
     elif action_data.action == 'raise':
         total_bet = action_data.amount
         diff = total_bet - current_player['current_bet']
+        if diff <= 0 or current_player['chips'] < diff:
+            raise HTTPException(status_code=400, detail="无效加注或筹码不足")
         current_player['chips'] -= diff
         current_player['current_bet'] = total_bet
         gs['pot'] += diff
         gs['current_bet'] = total_bet
+        gs['last_aggressor_index'] = turn_idx
     elif action_data.action == 'check':
         if current_player['current_bet'] < gs['current_bet']:
-             raise HTTPException(status_code=400, detail="Cannot check, must call or fold")
+             raise HTTPException(status_code=400, detail="无法过牌，必须跟注或弃牌")
     
-    # Next Turn
+    gs['acted_count'] += 1
+    
+    # Check if only one player remains (Immediate Win)
+    active_players = [p for p in players if not p['is_folded']]
+    if len(active_players) == 1:
+        winner = active_players[0]
+        winner['chips'] += gs['pot']
+        # Sync to DB
+        user = db.query(User).filter(User.username == winner['name']).first()
+        if user: user.chips = winner['chips']
+        
+        gs['winner'] = winner['name']
+        gs['pot'] = 0
+        gs['phase'] = 'showdown'
+        room.status = 'waiting'
+        room.game_state = json.dumps(gs)
+        db.commit()
+        return {"status": "success", "game_state": gs}
+
+    # Determine Next Turn
     num_players = len(players)
-    gs['turn_index'] = (turn_idx + 1) % num_players
+    next_idx = (turn_idx + 1) % num_players
+    while players[next_idx]['is_folded']:
+        next_idx = (next_idx + 1) % num_players
+    gs['turn_index'] = next_idx
     
-    # Check if phase over (simplified: everyone acted once and bets equal)
-    # For a real game, this needs more complex logic (tracking who raised).
-    # Let's just move phase if we reach index 0 again for now.
-    if gs['turn_index'] == 0:
+    # Check if phase over
+    # Conditions: 1. All active players have acted at least once
+    #             2. All active players' bets are equal
+    all_acted = gs['acted_count'] >= len(players) # Simplified: everyone got a chance
+    bets_equal = all(p['current_bet'] == gs['current_bet'] for p in players if not p['is_folded'])
+    
+    if bets_equal and (gs['acted_count'] >= len([p for p in players if not p['is_folded']])):
+        # Reset for next phase
+        gs['acted_count'] = 0
+        gs['last_aggressor_index'] = -1
+        for p in players: p['current_bet'] = 0
+        gs['current_bet'] = 0
+        
         if gs['phase'] == 'preflop':
             gs['phase'] = 'flop'
             gs['community_cards'].extend([gs['deck'].pop() for _ in range(3)])
@@ -473,28 +511,28 @@ def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(g
             gs['community_cards'].append(gs['deck'].pop())
         elif gs['phase'] == 'river':
             gs['phase'] = 'showdown'
-            # Determine winner
+            # Determine winner (Support Split Pot)
             best_score = -1
-            winner_name = ""
+            winners = []
             for p in players:
                 if not p['is_folded']:
                     score = evaluate_hand(p['hole_cards'] + gs['community_cards'])
                     if score > best_score:
                         best_score = score
-                        winner_name = p['name']
+                        winners = [p]
+                    elif score == best_score:
+                        winners.append(p)
             
-            # Award pot
-            for p in players:
-                if p['name'] == winner_name:
-                    p['chips'] += gs['pot']
-                    # Update chips in User table too
-                    user = db.query(User).filter(User.username == p['name']).first()
-                    if user:
-                        user.chips = p['chips']
-                    break
+            # Award pot (Split equally)
+            share = gs['pot'] // len(winners)
+            for w in winners:
+                w['chips'] += share
+                user = db.query(User).filter(User.username == w['name']).first()
+                if user: user.chips = w['chips']
             
-            gs['winner'] = winner_name
-             room.status = 'waiting' # Reset room status to allow next game
+            gs['winner'] = ", ".join([w['name'] for w in winners])
+            gs['pot'] = 0
+            room.status = 'waiting' 
              
     room.game_state = json.dumps(gs)
     room.last_action = json.dumps({"player": action_data.username, "action": action_data.action})

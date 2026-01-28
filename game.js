@@ -465,6 +465,18 @@ class Game {
 
     exitGame() {
         if (confirm("确定要退出当前游戏吗？")) {
+            this.mode = 'single';
+            if (this.pollingTimeout) clearTimeout(this.pollingTimeout);
+            this.roomId = null;
+            this.role = null;
+            this.showedWinner = false;
+            
+            // Restore AI area
+            const aiArea = document.getElementById('ai-area');
+            if (aiArea) aiArea.style.display = 'flex';
+            const tableArea = document.getElementById('poker-table-area');
+            if (tableArea) tableArea.style.display = 'none';
+            
             this.showMainMenu();
         }
     }
@@ -599,37 +611,57 @@ class Game {
     }
 
     async startMultiplayerPolling() {
-        if (this.pollingInterval) clearInterval(this.pollingInterval);
+        if (this.pollingTimeout) clearTimeout(this.pollingTimeout);
         
-        this.pollingInterval = setInterval(async () => {
+        const poll = async () => {
             if (this.mode !== 'multi') return;
             
             try {
                 const res = await fetch(`${this.serverUrl}/rooms/${this.roomId}/status`);
-                if (!res.ok) return;
-                const status = await res.json();
-                
-                // Update Title
-                this.ui.gameTitle.textContent = `多人对战 (ID:${status.id}) - ${status.player_count}/10人`;
-                
-                // Sync Game State if active
-                if (status.status === 'playing' && status.game_state) {
-                    this.syncGameState(status.game_state);
-                } else {
-                    // Render Lobby Table
-                    this.renderMultiplayerTable(status.players);
+                if (res.ok) {
+                    const status = await res.json();
+                    
+                    // Update Title
+                    if (this.ui.gameTitle) {
+                        this.ui.gameTitle.textContent = `多人对战 (ID:${status.id}) - ${status.player_count}/10人`;
+                    }
+                    
+                    // Sync Game State if active
+                    if (status.status === 'playing' && status.game_state) {
+                        this.syncGameState(status.game_state);
+                    } else if (status.status === 'waiting') {
+                        // Render Lobby Table
+                        this.renderMultiplayerTable(status.players);
+                        
+                        // If game just ended, show winner
+                        if (status.game_state && status.game_state.winner && !this.showedWinner) {
+                            this.log(`🎉 游戏结束！赢家: ${status.game_state.winner}`);
+                            alert(`游戏结束！赢家: ${status.game_state.winner}`);
+                            this.showedWinner = true;
+                            this.ui.buttons.start.style.display = (this.role === 'host') ? 'block' : 'none';
+                        }
+                    }
+                    
+                    if (status.status === 'playing') {
+                        this.showedWinner = false; // Reset for next game
+                        this.ui.buttons.start.style.display = 'none';
+                    }
+                    
+                    // Log new players
+                    if (this.lastPlayerCount && status.player_count > this.lastPlayerCount) {
+                         this.log(`新玩家加入！当前人数: ${status.player_count}`);
+                    }
+                    this.lastPlayerCount = status.player_count;
                 }
-                
-                // Log new players
-                if (this.lastPlayerCount && status.player_count > this.lastPlayerCount) {
-                     this.log(`新玩家加入！当前人数: ${status.player_count}`);
-                }
-                this.lastPlayerCount = status.player_count;
-                
             } catch (e) {
                 console.error("Polling error:", e);
             }
-        }, 2000);
+            
+            // Schedule next poll only after current one finishes
+            this.pollingTimeout = setTimeout(poll, 2000);
+        };
+        
+        poll();
     }
 
     syncGameState(gs) {
