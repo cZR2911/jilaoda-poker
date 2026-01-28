@@ -3,6 +3,7 @@
     { "source": "/login", "destination": "/api/index.py" },
     { "source": "/update_score", "destination": "/api/index.py" },
     { "source": "/admin/(.*)", "destination": "/api/index.py" },
+    { "source": "/rooms(.*)", "destination": "/api/index.py" },
     { "source": "/health", "destination": "/api/index.py" },
     { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/docs", "destination": "/api/index.py" },
