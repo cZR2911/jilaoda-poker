@@ -161,6 +161,7 @@ class Game {
         this.netProfit = 0;
         
         this.playerName = localStorage.getItem('poker_player_name') || '你';
+        this.isSpecialUser = false; // Flag for special users
 
         this.phases = ['preflop', 'flop', 'turn', 'river', 'showdown'];
         this.currentPhaseIdx = 0;
@@ -331,7 +332,10 @@ class Game {
 
             // Special welcome for specific users
             if (['小铛', 'xwy'].includes(this.playerName)) {
-                alert('欢迎基佬大最爱的妃子进入牌局');
+                this.isSpecialUser = true;
+                alert('欢迎基佬大最爱的妃子进入牌局！基佬大已为您铺好红地毯！👑');
+            } else {
+                this.isSpecialUser = false;
             }
 
             // Initialize Cheat UI if in Dev Mode
@@ -947,7 +951,10 @@ class Game {
 
             // Special welcome for specific users
             if (['小铛', 'xwy'].includes(this.playerName)) {
-                alert('欢迎基佬大最爱的妃子进入牌局');
+                this.isSpecialUser = true;
+                alert('欢迎基佬大最爱的妃子进入牌局！基佬大已为您铺好红地毯！👑');
+            } else {
+                this.isSpecialUser = false;
             }
 
         } else {
@@ -1234,6 +1241,7 @@ class Game {
                 }
                 this.isPlayerTurn = false;
                 this.updateButtons();
+                this.logSpecialAction(action); // Special dialogue
             } catch (e) {
                 alert(e.message);
             }
@@ -1242,6 +1250,7 @@ class Game {
 
         switch (action) {
             case 'fold':
+                this.logSpecialAction('fold'); // Special dialogue
                 this.endHand('ai');
                 return;
             case 'check':
@@ -1286,6 +1295,7 @@ class Game {
         this.isPlayerTurn = false;
         this.updateUI();
         this.updateButtons();
+        this.logSpecialAction(action); // Special dialogue
         
         // Check if round should end
         if (action === 'call' || (action === 'check' && this.aiBet === this.playerBet)) {
@@ -1393,6 +1403,8 @@ class Game {
             this.log("平分底池！");
         }
         
+        this.logSpecialResult(winner); // Special result dialogue
+        
         this.pot = 0;
         this.ui.buttons.start.disabled = false;
         this.syncScore();
@@ -1498,6 +1510,7 @@ class Game {
             this.log("基佬大 赢了！你弃牌。");
             this.checkTaunt();
         }
+        this.logSpecialResult(winner); // Special result dialogue
         this.pot = 0;
         this.ui.buttons.start.disabled = false;
         this.updateUI();
@@ -1510,7 +1523,16 @@ class Game {
 
     updateUI() {
         this.ui.playerChips.textContent = this.playerChips;
-        this.ui.playerName.textContent = this.playerName;
+        
+        if (this.isSpecialUser) {
+            this.ui.playerName.textContent = this.playerName + " (基佬大的爱妃)";
+            this.ui.playerName.style.color = "#e91e63"; // Pink color for special users
+            this.ui.playerName.style.fontWeight = "bold";
+        } else {
+            this.ui.playerName.textContent = this.playerName;
+            this.ui.playerName.style.color = ""; // Reset
+            this.ui.playerName.style.fontWeight = "";
+        }
         
         this.updateButtons();
         this.updatePLDisplay();
@@ -1619,6 +1641,42 @@ class Game {
 
     onRaiseChange(val) {
         this.ui.raiseControls.val.textContent = val;
+    }
+
+    // Special User Dialogues Helper
+    getSpecialDialogue(type) {
+        const dialogues = {
+            'fold': ["不跟他们一般见识~", "让基佬大来收拾他们！", "爱妃先歇歇~", "基佬大说这把牌不好，撤！"],
+            'check': ["观察一下局势...", "让基佬大看看有没有诈...", "稳一手，看看风向。", "基佬大：这波可以看。"],
+            'call': ["夫唱妇随，跟了！", "这点小钱，基佬大出！", "陪你们玩玩~", "基佬大：跟上！"],
+            'raise': ["基佬大的私房钱拿来加注！", "爱妃发威了！", "谁敢跟基佬大的女人比有钱？", "加注！让基佬大看看我的魄力！"],
+            'win': ["基佬大：爱妃真棒！", "赢了钱给基佬大买烟抽！", "大杀四方，威震后宫！", "手气这么好，基佬大今晚有赏！"],
+            'lose': ["基佬大：记我账上！", "没事，基佬大养你！", "胜败乃兵家常事，基佬大不怪你。", "输了算基佬大的，赢了算我的！"]
+        };
+        const list = dialogues[type] || [];
+        if (list.length === 0) return "";
+        return list[Math.floor(Math.random() * list.length)];
+    }
+
+    logSpecialAction(action) {
+        if (!this.isSpecialUser) return;
+        const msg = this.getSpecialDialogue(action);
+        if (msg) {
+            setTimeout(() => {
+                this.log(`👑 ${msg}`); 
+            }, 800); 
+        }
+    }
+    
+    logSpecialResult(winner) {
+        if (!this.isSpecialUser) return;
+        const type = (winner === 'player') ? 'win' : 'lose';
+        const msg = this.getSpecialDialogue(type);
+        if (msg) {
+            setTimeout(() => {
+                this.log(`👑 ${msg}`);
+            }, 800);
+        }
     }
 }
 

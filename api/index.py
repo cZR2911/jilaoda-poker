@@ -420,16 +420,15 @@ def start_game(room_id: str, data: dict, db: Session = Depends(get_db)):
     
     game_players = []
     for p_name in players:
-        # Get chips from DB for each player
-        user = db.query(User).filter(User.username == p_name).first()
-        chips = user.chips if user else 1000
+        # Starting chips are now 200 and room-specific
+        chips = 200
         game_players.append({
             "name": p_name,
             "chips": chips,
             "hole_cards": [deck.pop(), deck.pop()],
             "current_bet": 0,
             "is_folded": False,
-            "is_out": chips <= 0,
+            "is_out": False, # Can be negative, so never "out" in the traditional sense
             "is_ai": p_name in AI_NAMES
         })
     
@@ -470,11 +469,8 @@ def execute_ai_turns(gs, db, room):
         
         if current_player['current_bet'] < gs['current_bet']:
             diff = gs['current_bet'] - current_player['current_bet']
-            if current_player['chips'] >= diff:
-                action = "call"
-            else:
-                # All-in or Fold? For now, just fold if can't call
-                action = "fold"
+            # AI always calls since chips can be negative
+            action = "call"
         
         # Apply AI Action
         if action == 'fold':
@@ -495,8 +491,7 @@ def execute_ai_turns(gs, db, room):
         if len(active_players) == 1:
             winner = active_players[0]
             winner['chips'] += gs['pot']
-            user = db.query(User).filter(User.username == winner['name']).first()
-            if user: user.chips = winner['chips']
+            # No sync to DB
             gs['winner'] = winner['name']
             gs['pot'] = 0
             gs['phase'] = 'showdown'
@@ -548,8 +543,7 @@ def execute_ai_turns(gs, db, room):
                 share = gs['pot'] // len(winners)
                 for w in winners:
                     w['chips'] += share
-                    user = db.query(User).filter(User.username == w['name']).first()
-                    if user: user.chips = w['chips']
+                    # No sync to DB
                 gs['winner'] = ", ".join([w['name'] for w in winners])
                 gs['pot'] = 0
                 room.status = 'waiting'
@@ -577,16 +571,15 @@ def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(g
         current_player['is_folded'] = True
     elif action_data.action == 'call':
         diff = gs['current_bet'] - current_player['current_bet']
-        if current_player['chips'] < diff:
-            raise HTTPException(status_code=400, detail="筹码不足")
+        # Chips can be negative, so no check needed
         current_player['chips'] -= diff
         current_player['current_bet'] += diff
         gs['pot'] += diff
     elif action_data.action == 'raise':
         total_bet = action_data.amount
         diff = total_bet - current_player['current_bet']
-        if diff <= 0 or current_player['chips'] < diff:
-            raise HTTPException(status_code=400, detail="无效加注或筹码不足")
+        if diff <= 0:
+            raise HTTPException(status_code=400, detail="无效加注")
         current_player['chips'] -= diff
         current_player['current_bet'] = total_bet
         gs['pot'] += diff
@@ -603,9 +596,7 @@ def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(g
     if len(active_players) == 1:
         winner = active_players[0]
         winner['chips'] += gs['pot']
-        # Sync to DB
-        user = db.query(User).filter(User.username == winner['name']).first()
-        if user: user.chips = winner['chips']
+        # No longer sync to global DB as chips are room-specific
         
         gs['winner'] = winner['name']
         gs['pot'] = 0
@@ -668,8 +659,7 @@ def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(g
             share = gs['pot'] // len(winners)
             for w in winners:
                 w['chips'] += share
-                user = db.query(User).filter(User.username == w['name']).first()
-                if user: user.chips = w['chips']
+                # No longer sync to global DB as chips are room-specific
             
             gs['winner'] = ", ".join([w['name'] for w in winners])
             gs['pot'] = 0
@@ -698,10 +688,7 @@ def cheat_add_chips(room_id: str, cheat: CheatRequest, db: Session = Depends(get
         if p['name'] == target:
             p['chips'] += cheat.amount
             found = True
-            # Sync to DB user
-            user = db.query(User).filter(User.username == target).first()
-            if user:
-                user.chips = p['chips']
+            # No longer sync to DB user
             break
             
     if not found:
@@ -725,10 +712,7 @@ def cheat_force_win(room_id: str, cheat: CheatRequest, db: Session = Depends(get
     for p in gs['players']:
         if p['name'] == target:
             p['chips'] += gs['pot']
-            # Sync to DB
-            user = db.query(User).filter(User.username == target).first()
-            if user:
-                user.chips = p['chips']
+            # No longer sync to DB user
             winner_found = True
             break
             
