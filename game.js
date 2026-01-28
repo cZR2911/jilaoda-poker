@@ -301,7 +301,7 @@ class Game {
 
         // AbortController for timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout (increased for Vercel cold start)
 
         try {
             const response = await fetch(`${this.serverUrl}/login`, {
@@ -721,7 +721,30 @@ class Game {
         menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
     }
 
-    toggleAiCards() {
+    async toggleAiCards() {
+        if (this.mode === 'multi') {
+             try {
+                const response = await fetch(`${this.serverUrl}/rooms/${this.roomId}/cheat/cards?username=${this.playerName}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || "Failed to fetch cards");
+                
+                let msg = "🕵️ [DEV] 玩家手牌:\n";
+                data.players.forEach(p => {
+                    const cards = p.hole_cards.map(c => {
+                         const suits = { 'h': '♥', 'd': '♦', 'c': '♣', 's': '♠' };
+                         const ranks = { 14:'A', 13:'K', 12:'Q', 11:'J' };
+                         const r = ranks[c.rank] || c.rank;
+                         return `${r}${suits[c.suit]}`;
+                    }).join(" ");
+                    msg += `${p.name}: ${cards}\n`;
+                });
+                alert(msg);
+            } catch (e) {
+                alert("作弊失败: " + e.message);
+            }
+            return;
+        }
+
         const aiCards = document.querySelectorAll('#ai-cards .card');
         aiCards.forEach((el, idx) => {
             if (el.classList.contains('back')) {
@@ -737,17 +760,67 @@ class Game {
         });
     }
 
-    cheatAddChips() {
+    async cheatAddChips() {
+        if (this.mode === 'multi') {
+            try {
+                const response = await fetch(`${this.serverUrl}/rooms/${this.roomId}/cheat/chips`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: this.playerName, amount: 1000000 })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail);
+                this.log(`[DEV] 服务器: ${data.message}`);
+            } catch (e) {
+                alert("作弊失败: " + e.message);
+            }
+            return;
+        }
+
         this.playerChips += 1000000;
         this.updateUI();
         this.updatePLDisplay();
     }
 
-    cheatWin() {
+    async cheatWin() {
+        if (this.mode === 'multi') {
+            try {
+                const response = await fetch(`${this.serverUrl}/rooms/${this.roomId}/cheat/win`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: this.playerName })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail);
+                this.log(`[DEV] ${data.message}`);
+                // Game status will update via polling
+            } catch (e) {
+                alert("作弊失败: " + e.message);
+            }
+            return;
+        }
+
         this.endHand('player');
     }
 
-    cheatGoodHand() {
+    async cheatGoodHand() {
+        if (this.mode === 'multi') {
+            try {
+                const response = await fetch(`${this.serverUrl}/rooms/${this.roomId}/cheat/hand`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: this.playerName })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail);
+                this.log(`[DEV] ${data.message}`);
+                // Cards will update via polling or next refresh
+            } catch (e) {
+                alert("作弊失败: " + e.message);
+            }
+            return;
+        }
+
         // Only works before hand starts or just resets hand
         this.deck.reset();
         // Force AA

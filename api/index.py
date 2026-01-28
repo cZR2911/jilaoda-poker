@@ -188,6 +188,11 @@ class RoomAction(BaseModel):
     action: str # 'fold', 'check', 'call', 'raise'
     amount: Optional[int] = 0
 
+class CheatRequest(BaseModel):
+    username: str
+    target_username: Optional[str] = None
+    amount: Optional[int] = 0
+
 class RoomList(BaseModel):
     id: str
     name: str
@@ -495,3 +500,102 @@ def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(g
     room.last_action = json.dumps({"player": action_data.username, "action": action_data.action})
     db.commit()
     return {"status": "success", "game_state": gs}
+
+@app.post("/rooms/{room_id}/cheat/chips")
+def cheat_add_chips(room_id: str, cheat: CheatRequest, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room or not room.game_state:
+        raise HTTPException(status_code=404, detail="Game not active")
+        
+    gs = json.loads(room.game_state)
+    target = cheat.target_username or cheat.username
+    
+    found = False
+    for p in gs['players']:
+        if p['name'] == target:
+            p['chips'] += cheat.amount
+            found = True
+            # Sync to DB user
+            user = db.query(User).filter(User.username == target).first()
+            if user:
+                user.chips = p['chips']
+            break
+            
+    if not found:
+        raise HTTPException(status_code=404, detail="Player not found")
+        
+    room.game_state = json.dumps(gs)
+    db.commit()
+    return {"status": "success", "message": f"Added {cheat.amount} chips to {target}"}
+
+@app.post("/rooms/{room_id}/cheat/win")
+def cheat_force_win(room_id: str, cheat: CheatRequest, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room or not room.game_state:
+        raise HTTPException(status_code=404, detail="Game not active")
+    
+    gs = json.loads(room.game_state)
+    target = cheat.target_username or cheat.username
+    
+    # Award pot to target
+    winner_found = False
+    for p in gs['players']:
+        if p['name'] == target:
+            p['chips'] += gs['pot']
+            # Sync to DB
+            user = db.query(User).filter(User.username == target).first()
+            if user:
+                user.chips = p['chips']
+            winner_found = True
+            break
+            
+    if not winner_found:
+        raise HTTPException(status_code=404, detail="Player not found")
+        
+    gs['winner'] = target
+    gs['pot'] = 0
+    room.status = 'waiting' # End game
+    room.game_state = json.dumps(gs)
+    db.commit()
+    return {"status": "success", "message": f"{target} forced win"}
+
+@app.post("/rooms/{room_id}/cheat/hand")
+def cheat_good_hand(room_id: str, cheat: CheatRequest, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room or not room.game_state:
+        raise HTTPException(status_code=404, detail="Game not active")
+        
+    gs = json.loads(room.game_state)
+    target = cheat.target_username or cheat.username
+    
+    # Give AA
+    # Note: This might create duplicate cards if Aces are already in other hands or deck
+    # But for a cheat, we accept this risk/inconsistency
+    new_hand = [
+        {'suit': 's', 'rank': 14},
+        {'suit': 'h', 'rank': 14}
+    ]
+    
+    found = False
+    for p in gs['players']:
+        if p['name'] == target:
+            p['hole_cards'] = new_hand
+            found = True
+            break
+            
+    if not found:
+        raise HTTPException(status_code=404, detail="Player not found")
+        
+    room.game_state = json.dumps(gs)
+    db.commit()
+    return {"status": "success", "message": "Dealt AA to " + target}
+
+@app.get("/rooms/{room_id}/cheat/cards")
+def cheat_view_cards(room_id: str, username: str, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room or not room.game_state:
+        raise HTTPException(status_code=404, detail="Game not active")
+        
+    # Ideally verify user is admin/dev, but for now just allow it as requested
+    gs = json.loads(room.game_state)
+    return {"status": "success", "players": gs['players']}
