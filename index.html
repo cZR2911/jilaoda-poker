@@ -15,7 +15,7 @@
             <button id="btn-menu" class="menu-btn" onclick="game.toggleSidebar()">☰ 账户</button>
         </div>
         
-        <div class="table">
+        <div class="table" id="single-player-table">
             <div class="ai-area">
                 <div class="player-info ai-info">
                     <img id="ai-avatar" class="avatar" src="" alt="AI Avatar">
@@ -58,6 +58,19 @@
             </div>
         </div>
 
+        <!-- Multiplayer Table Area -->
+        <div id="multiplayer-table" class="poker-table-area" style="display: none;">
+            <div class="table-felt">
+                <div class="table-center-content">
+                    <div class="mp-pot-info">底池: <span id="mp-pot-size">0</span></div>
+                    <div class="community-cards" id="mp-community-cards"></div>
+                    <div class="mp-message" id="mp-game-message">等待游戏开始...</div>
+                </div>
+                <div id="mp-seats-container"></div>
+                <div id="mp-my-hand" class="cards" style="position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); z-index: 20;"></div>
+            </div>
+        </div>
+
         <div class="controls">
             <div class="action-buttons" id="action-buttons">
                 <button id="btn-fold" onclick="game.playerAction('fold')" disabled>弃牌</button>
@@ -73,6 +86,7 @@
             </div>
             <div class="game-controls">
                 <button id="btn-start" onclick="game.startGame()">开始游戏</button>
+                <button id="btn-add-ai" onclick="game.openAddAiMenu()" style="display: none; background: #27ae60; margin-left: 10px;">➕ 添加人机</button>
             </div>
         </div>
     </div>
@@ -234,6 +248,19 @@
             </div>
             <div class="modal-buttons">
                 <button onclick="game.adminResetPassword()">确认重置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Select Modal -->
+    <div id="ai-modal" class="modal">
+        <div class="modal-content">
+            <h2>选择要添加的人机</h2>
+            <div id="ai-list" class="room-list" style="max-height: 300px; overflow-y: auto; margin: 20px 0;">
+                <!-- AI names will be populated here -->
+            </div>
+            <div class="modal-buttons">
+                <button class="secondary-btn" onclick="document.getElementById('ai-modal').style.display='none'">取消</button>
             </div>
         </div>
     </div>

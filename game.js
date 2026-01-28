@@ -192,7 +192,8 @@ class Game {
                 check: document.getElementById('btn-check'),
                 call: document.getElementById('btn-call'),
                 raise: document.getElementById('btn-raise'),
-                start: document.getElementById('btn-start')
+                start: document.getElementById('btn-start'),
+                addAi: document.getElementById('btn-add-ai')
             },
             raiseControls: {
                 slider: document.getElementById('raise-slider'),
@@ -327,6 +328,11 @@ class Game {
             localStorage.setItem('poker_player_name', username);
             this.updateUI();
             this.log(`欢迎回来, ${this.playerName}!`);
+
+            // Special welcome for specific users
+            if (['小铛', 'xwy'].includes(this.playerName)) {
+                alert('欢迎基佬大最爱的妃子进入牌局');
+            }
 
             // Initialize Cheat UI if in Dev Mode
             if (this.isDev) {
@@ -463,6 +469,46 @@ class Game {
         }
     }
 
+    openAddAiMenu() {
+        const modal = document.getElementById('ai-modal');
+        const list = document.getElementById('ai-list');
+        const aiNames = ["小裆", "裤裆", "大裆", "项老大", "基佬打的1号分身", "基佬打的2号分身", "基佬打的3号分身", "基佬打的4号分身"];
+        
+        list.innerHTML = '';
+        aiNames.forEach(name => {
+            const el = document.createElement('div');
+            el.className = 'room-item';
+            el.innerHTML = `
+                <span>${name}</span>
+                <button class="action-btn" onclick="game.addAiPlayer('${name}')">添加</button>
+            `;
+            list.appendChild(el);
+        });
+        
+        modal.style.display = 'flex';
+    }
+
+    async addAiPlayer(aiName) {
+        try {
+            const response = await fetch(`${this.serverUrl}/rooms/${this.roomId}/add_ai`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: this.playerName, ai_name: aiName })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || "添加人机失败");
+            }
+            
+            this.log(`成功添加人机: ${aiName}`);
+            document.getElementById('ai-modal').style.display = 'none';
+            // Polling will update the table
+        } catch (e) {
+            alert(e.message);
+        }
+    }
+
     exitGame() {
         if (confirm("确定要退出当前游戏吗？")) {
             this.mode = 'single';
@@ -471,11 +517,11 @@ class Game {
             this.role = null;
             this.showedWinner = false;
             
-            // Restore AI area
-            const aiArea = document.getElementById('ai-area');
-            if (aiArea) aiArea.style.display = 'flex';
-            const tableArea = document.getElementById('poker-table-area');
-            if (tableArea) tableArea.style.display = 'none';
+            // Restore Views
+            const spTable = document.getElementById('single-player-table');
+            const mpTable = document.getElementById('multiplayer-table');
+            if (spTable) spTable.style.display = 'flex';
+            if (mpTable) mpTable.style.display = 'none';
             
             this.showMainMenu();
         }
@@ -517,31 +563,21 @@ class Game {
                 this.ui.gameTitle.textContent = `多人对战 (${this.roomId})`;
             }
             
-            // Clear single player AI area and show table
-            const aiArea = document.getElementById('ai-area');
-            if (aiArea) aiArea.style.display = 'none';
+            // Switch Table Views
+            const spTable = document.getElementById('single-player-table');
+            const mpTable = document.getElementById('multiplayer-table');
+            if (spTable) spTable.style.display = 'none';
+            if (mpTable) mpTable.style.display = 'block';
             
             // Hide Start Button for guest initially or change text
             if (this.role !== 'host') {
                 this.ui.buttons.start.style.display = 'none';
+                this.ui.buttons.addAi.style.display = 'none';
             } else {
-                this.ui.buttons.start.textContent = '开始对局 (开发中)';
+                this.ui.buttons.start.textContent = '开始对局';
+                this.ui.buttons.addAi.style.display = 'block';
             }
             
-            // Create or Show Table Area
-            let tableArea = document.getElementById('poker-table-area');
-            if (!tableArea) {
-                tableArea = document.createElement('div');
-                tableArea.id = 'poker-table-area';
-                tableArea.className = 'poker-table-area';
-                // Insert before community cards or replace main area
-                // For simplicity, let's append to game-ui main container and style it absolute
-                const container = document.querySelector('.game-container');
-                container.insertBefore(tableArea, document.getElementById('community-cards-container'));
-            }
-            tableArea.style.display = 'block';
-            tableArea.innerHTML = ''; // Clear previous
-
             // Disable AI Logic
             this.log(`[多人模式] 已进入房间。等待玩家加入...`);
             
@@ -554,24 +590,25 @@ class Game {
     }
 
     renderMultiplayerTable(playerNames, playerDetails = null) {
-        const tableArea = document.getElementById('poker-table-area');
-        if (!tableArea) return;
+        const seatsContainer = document.getElementById('mp-seats-container');
+        if (!seatsContainer) return;
         
-        tableArea.innerHTML = ''; // Clear and redraw
+        seatsContainer.innerHTML = ''; // Clear and redraw
         
         const totalSeats = 10;
         const centerX = 50; 
         const centerY = 50; 
-        const radiusX = 40; 
-        const radiusY = 35; 
+        // Use slightly smaller radius to avoid overflow on mobile edges
+        const radiusX = 42; // Reduced from 48
+        const radiusY = 42; 
         
         const myIndex = playerNames.indexOf(this.playerName);
         const mySeatIndex = myIndex === -1 ? 0 : myIndex;
         
         playerNames.forEach((p, i) => {
-            if (p === this.playerName) return; 
-            
+            // Calculate position
             const relativeIndex = (i - mySeatIndex + totalSeats) % totalSeats;
+            // Shift angle so index 0 (me) is at 90 degrees (bottom)
             const angleDeg = 90 + (relativeIndex * (360 / totalSeats));
             const angleRad = angleDeg * (Math.PI / 180);
             
@@ -586,27 +623,37 @@ class Game {
             let chipsText = '???';
             let betText = '';
             let statusClass = '';
+            let isWinner = false;
             
             if (playerDetails && playerDetails[i]) {
                 const pd = playerDetails[i];
                 chipsText = pd.chips;
                 if (pd.current_bet > 0) betText = `下注: ${pd.current_bet}`;
                 if (pd.is_folded) statusClass = 'folded';
-                // TODO: Add 'acting' class if it's their turn
+                // Highlight active player
+                // We need to know who is acting. This info is in game state but not passed directly here easily unless we pass full GS.
+                // Assuming updateUI calls this with GS info or we infer it. 
+                // Actually renderMultiplayerTable is called with just names/details list.
+                // We can add an 'active' property to playerDetails from syncGameState.
+                if (pd.is_active) statusClass += ' active';
+                if (pd.is_winner) {
+                    statusClass += ' winner';
+                    betText = '赢家!'; 
+                }
             }
 
             seat.innerHTML = `
+                ${betText ? `<div class="seat-bet">${betText}</div>` : ''}
                 <div class="seat-avatar ${statusClass}">
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${p}" alt="${p}">
                 </div>
                 <div class="seat-info">
                     <div class="seat-name">${p}</div>
                     <div class="seat-chips">💰 ${chipsText}</div>
-                    ${betText ? `<div class="seat-bet">${betText}</div>` : ''}
                 </div>
             `;
             
-            tableArea.appendChild(seat);
+            seatsContainer.appendChild(seat);
         });
     }
 
@@ -681,8 +728,13 @@ class Game {
 
         this.updateUI();
         
-        // Render other players on table
-        this.renderMultiplayerTable(gs.players.map(p => p.name), gs.players);
+        // Render other players on table with status
+        const playersWithStatus = gs.players.map((p, index) => ({
+            ...p,
+            is_active: index === gs.turn_index,
+            is_winner: (gs.winner === p.name) // Check if winner
+        }));
+        this.renderMultiplayerTable(gs.players.map(p => p.name), playersWithStatus);
     }
 
     initCheatUI() {
@@ -892,6 +944,12 @@ class Game {
 
             this.ui.modal.welcome.style.display = 'none';
             this.updateUI();
+
+            // Special welcome for specific users
+            if (['小铛', 'xwy'].includes(this.playerName)) {
+                alert('欢迎基佬大最爱的妃子进入牌局');
+            }
+
         } else {
             alert("请输入名字！");
         }
@@ -1454,32 +1512,52 @@ class Game {
         this.ui.playerChips.textContent = this.playerChips;
         this.ui.playerName.textContent = this.playerName;
         
-        // Update Game Title
-        if (this.ui.gameTitle) {
-            this.ui.gameTitle.textContent = `${this.playerName} vs 基佬大`;
-        }
-
-        this.ui.aiName.textContent = "基佬大"; // Update AI name dynamically
-        this.ui.aiChips.textContent = (this.aiChips > 900000) ? "∞" : this.aiChips;
-        this.ui.pot.textContent = this.pot;
-        this.ui.aiRoundBet.textContent = this.aiBet;
-        
         this.updateButtons();
         this.updatePLDisplay();
 
-        // Render Player Cards
-        this.renderCards(this.playerCards, this.ui.playerCards);
+        if (this.mode === 'multi') {
+            // Multiplayer UI Updates
+            // Title is handled by polling or initial join, don't overwrite here
+            
+            const mpPot = document.getElementById('mp-pot-size');
+            if (mpPot) mpPot.textContent = this.pot;
+            
+            const mpCommCards = document.getElementById('mp-community-cards');
+            if (mpCommCards) this.renderCards(this.communityCards, mpCommCards);
+            
+            const mpHand = document.getElementById('mp-my-hand');
+            if (mpHand) this.renderCards(this.playerCards, mpHand);
 
-        // Render Community Cards
-        this.renderCards(this.communityCards, this.ui.communityCards);
+            const mpMsg = document.getElementById('mp-game-message');
+            if (mpMsg) mpMsg.textContent = this.ui.message.textContent; // Sync message
 
-        // Render AI Cards (Hidden unless showdown)
-        if (this.phase !== 'showdown') {
-            this.ui.aiCards.innerHTML = `
-                <div class="card back"></div>
-                <div class="card back"></div>
-            `;
-        } // Showdown rendering is handled in showdown() or if needed here, but showdown() calls renderCards directly.
+        } else {
+            // Single Player UI Updates
+            
+            // Update Game Title only in single player
+            if (this.ui.gameTitle) {
+                this.ui.gameTitle.textContent = `${this.playerName} vs 基佬大`;
+            }
+
+            this.ui.aiName.textContent = "基佬大"; 
+            this.ui.aiChips.textContent = (this.aiChips > 900000) ? "∞" : this.aiChips;
+            this.ui.pot.textContent = this.pot;
+            this.ui.aiRoundBet.textContent = this.aiBet;
+            
+            // Render Player Cards
+            this.renderCards(this.playerCards, this.ui.playerCards);
+
+            // Render Community Cards
+            this.renderCards(this.communityCards, this.ui.communityCards);
+
+            // Render AI Cards (Hidden unless showdown)
+            if (this.phase !== 'showdown') {
+                this.ui.aiCards.innerHTML = `
+                    <div class="card back"></div>
+                    <div class="card back"></div>
+                `;
+            }
+        }
     }
 
     renderCards(cards, container) {

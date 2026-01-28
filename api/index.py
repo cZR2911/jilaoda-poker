@@ -370,6 +370,33 @@ def get_room_status(room_id: str, db: Session = Depends(get_db)):
         "last_action": json.loads(room.last_action) if room.last_action else None
     }
 
+AI_NAMES = ["小裆", "裤裆", "大裆", "项老大", "基佬打的1号分身", "基佬打的2号分身", "基佬打的3号分身", "基佬打的4号分身"]
+
+@app.post("/rooms/{room_id}/add_ai")
+def add_ai_player(room_id: str, data: dict, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    if room.host != data.get('username'):
+        raise HTTPException(status_code=403, detail="Only host can add AI")
+    
+    players = json.loads(room.players_json) if room.players_json else []
+    if len(players) >= room.max_players:
+        raise HTTPException(status_code=400, detail="Room is full")
+    
+    ai_name = data.get('ai_name')
+    if not ai_name or ai_name not in AI_NAMES:
+        raise HTTPException(status_code=400, detail="Invalid AI name")
+    
+    if ai_name in players:
+        raise HTTPException(status_code=400, detail="AI already in room")
+    
+    players.append(ai_name)
+    room.players_json = json.dumps(players)
+    db.commit()
+    return {"message": f"AI {ai_name} added", "players": players}
+
 @app.post("/rooms/{room_id}/start")
 def start_game(room_id: str, data: dict, db: Session = Depends(get_db)):
     room = db.query(Room).filter(Room.id == room_id).first()
@@ -402,7 +429,8 @@ def start_game(room_id: str, data: dict, db: Session = Depends(get_db)):
             "hole_cards": [deck.pop(), deck.pop()],
             "current_bet": 0,
             "is_folded": False,
-            "is_out": chips <= 0
+            "is_out": chips <= 0,
+            "is_ai": p_name in AI_NAMES
         })
     
     game_state = {
@@ -418,9 +446,116 @@ def start_game(room_id: str, data: dict, db: Session = Depends(get_db)):
     }
     
     room.status = 'playing'
+    execute_ai_turns(game_state, db, room)
     room.game_state = json.dumps(game_state)
     db.commit()
     return {"message": "Game started", "game_state": game_state}
+
+def execute_ai_turns(gs, db, room):
+    """
+    Automatically execute turns for AI players until it's a human's turn or game ends.
+    """
+    players = gs['players']
+    
+    while True:
+        turn_idx = gs['turn_index']
+        current_player = players[turn_idx]
+        
+        if not current_player.get('is_ai') or room.status != 'playing':
+            break
+            
+        # AI Action Logic (Simple: Call/Check)
+        action = "check"
+        amount = 0
+        
+        if current_player['current_bet'] < gs['current_bet']:
+            diff = gs['current_bet'] - current_player['current_bet']
+            if current_player['chips'] >= diff:
+                action = "call"
+            else:
+                # All-in or Fold? For now, just fold if can't call
+                action = "fold"
+        
+        # Apply AI Action
+        if action == 'fold':
+            current_player['is_folded'] = True
+        elif action == 'call':
+            diff = gs['current_bet'] - current_player['current_bet']
+            current_player['chips'] -= diff
+            current_player['current_bet'] += diff
+            gs['pot'] += diff
+        elif action == 'check':
+            pass
+            
+        gs['acted_count'] += 1
+        room.last_action = json.dumps({"player": current_player['name'], "action": action})
+
+        # Check Win Condition
+        active_players = [p for p in players if not p['is_folded']]
+        if len(active_players) == 1:
+            winner = active_players[0]
+            winner['chips'] += gs['pot']
+            user = db.query(User).filter(User.username == winner['name']).first()
+            if user: user.chips = winner['chips']
+            gs['winner'] = winner['name']
+            gs['pot'] = 0
+            gs['phase'] = 'showdown'
+            room.status = 'waiting'
+            break
+
+        # Determine Next Turn
+        num_players = len(players)
+        next_idx = (turn_idx + 1) % num_players
+        while players[next_idx]['is_folded']:
+            next_idx = (next_idx + 1) % num_players
+        gs['turn_index'] = next_idx
+        
+        # Check Phase Transition
+        bets_equal = all(p['current_bet'] == gs['current_bet'] for p in players if not p['is_folded'])
+        if bets_equal and (gs['acted_count'] >= len([p for p in players if not p['is_folded']])):
+            gs['acted_count'] = 0
+            gs['last_aggressor_index'] = -1
+            for p in players: p['current_bet'] = 0
+            gs['current_bet'] = 0
+            
+            # Reset turn_index to first active player (simplified: index 0)
+            next_idx = 0
+            while players[next_idx]['is_folded']:
+                next_idx = (next_idx + 1) % len(players)
+            gs['turn_index'] = next_idx
+            
+            if gs['phase'] == 'preflop':
+                gs['phase'] = 'flop'
+                gs['community_cards'].extend([gs['deck'].pop() for _ in range(3)])
+            elif gs['phase'] == 'flop':
+                gs['phase'] = 'turn'
+                gs['community_cards'].append(gs['deck'].pop())
+            elif gs['phase'] == 'turn':
+                gs['phase'] = 'river'
+                gs['community_cards'].append(gs['deck'].pop())
+            elif gs['phase'] == 'river':
+                gs['phase'] = 'showdown'
+                best_score = -1
+                winners = []
+                for p in players:
+                    if not p['is_folded']:
+                        score = evaluate_hand(p['hole_cards'] + gs['community_cards'])
+                        if score > best_score:
+                            best_score = score
+                            winners = [p]
+                        elif score == best_score:
+                            winners.append(p)
+                share = gs['pot'] // len(winners)
+                for w in winners:
+                    w['chips'] += share
+                    user = db.query(User).filter(User.username == w['name']).first()
+                    if user: user.chips = w['chips']
+                gs['winner'] = ", ".join([w['name'] for w in winners])
+                gs['pot'] = 0
+                room.status = 'waiting'
+                break # Phase transition happened, but if it went to showdown, we stop
+            
+            # After phase transition, start loop again to check if first player in new phase is AI
 
 @app.post("/rooms/{room_id}/action")
 def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(get_db)):
@@ -500,6 +635,12 @@ def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(g
         for p in players: p['current_bet'] = 0
         gs['current_bet'] = 0
         
+        # Reset turn_index to first active player (simplified: index 0)
+        next_idx = 0
+        while players[next_idx]['is_folded']:
+            next_idx = (next_idx + 1) % num_players
+        gs['turn_index'] = next_idx
+        
         if gs['phase'] == 'preflop':
             gs['phase'] = 'flop'
             gs['community_cards'].extend([gs['deck'].pop() for _ in range(3)])
@@ -533,6 +674,10 @@ def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(g
             gs['winner'] = ", ".join([w['name'] for w in winners])
             gs['pot'] = 0
             room.status = 'waiting' 
+    
+    # After human action, execute any subsequent AI turns
+    if room.status == 'playing':
+        execute_ai_turns(gs, db, room)
              
     room.game_state = json.dumps(gs)
     room.last_action = json.dumps({"player": action_data.username, "action": action_data.action})

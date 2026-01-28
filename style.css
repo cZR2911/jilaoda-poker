@@ -341,17 +341,61 @@ button {
 .status-badge.online { background-color: #2ecc71; }
 .status-badge.offline { background-color: #95a5a6; }
 
-/* Poker Table Layout */
+/* Poker Table Layout - Optimized */
 .poker-table-area {
     position: relative;
     width: 100%;
-    height: 350px;
+    height: 450px; /* Increased height for better spacing */
     margin-bottom: 20px;
-    background: radial-gradient(ellipse at center, #27ae60 0%, #1e8449 100%);
-    border-radius: 100px;
-    border: 10px solid #5d4037;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
     display: none;
+    perspective: 1000px;
+}
+
+.table-felt {
+    width: 95%;
+    height: 90%;
+    background: radial-gradient(ellipse at center, #27ae60 0%, #145a32 100%);
+    border-radius: 200px;
+    border: 15px solid #5d4037; /* Wood border */
+    box-shadow: 
+        inset 0 0 50px rgba(0,0,0,0.8),
+        0 10px 30px rgba(0,0,0,0.5);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.table-center-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    width: 60%;
+    z-index: 5;
+}
+
+.mp-pot-info {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 5px 15px;
+    border-radius: 20px;
+    border: 1px solid #f1c40f;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: white;
+}
+
+.mp-message {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(0,0,0,0.4);
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-align: center;
 }
 
 .table-seat {
@@ -360,32 +404,59 @@ button {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 70px;
+    width: 80px;
+    z-index: 10;
+    transition: all 0.3s ease;
+}
+
+.seat-avatar {
+    position: relative;
 }
 
 .seat-avatar img {
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    border: 2px solid #f1c40f;
+    border: 3px solid #bdc3c7;
     background: #fff;
-    transition: filter 0.3s;
+    transition: border-color 0.3s, transform 0.3s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.seat-avatar.active img {
+    border-color: #f1c40f;
+    box-shadow: 0 0 15px #f1c40f;
+    transform: scale(1.1);
 }
 
 .seat-avatar.folded img {
-    filter: grayscale(100%) opacity(0.5);
+    filter: grayscale(100%) opacity(0.6);
+    border-color: #7f8c8d;
+}
+
+.seat-avatar.winner img {
+    border-color: #2ecc71;
+    box-shadow: 0 0 20px #2ecc71;
+    animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
 }
 
 .seat-info {
-    background: rgba(0,0,0,0.8);
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.75em;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.8em;
     color: white;
     text-align: center;
-    margin-top: -10px;
-    z-index: 1;
+    margin-top: -12px;
+    z-index: 12;
     border: 1px solid #7f8c8d;
+    min-width: 70px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .seat-name {
@@ -393,20 +464,34 @@ button {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 80px;
+    max-width: 75px;
+    color: #ecf0f1;
 }
 
-.seat-chips { color: #f1c40f; }
+.seat-chips { 
+    color: #f1c40f; 
+    font-size: 0.9em;
+}
 
 .seat-bet {
+    position: absolute;
+    top: -25px; /* Position above the player */
     background: #f39c12;
-    color: black;
-    padding: 1px 5px;
-    border-radius: 10px;
-    font-size: 0.7em;
+    color: #2c3e50;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
     font-weight: bold;
-    margin-top: 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    white-space: nowrap;
+    z-index: 15;
+}
+
+/* Make community cards smaller in MP table if needed */
+#mp-community-cards .card {
+    width: 50px;
+    height: 70px;
+    font-size: 1.2em;
 }
 
 .version-display {
@@ -417,4 +502,88 @@ button {
     color: rgba(255, 255, 255, 0.3);
     pointer-events: none;
     z-index: 50;
+}
+
+/* Mobile Optimization */
+@media (max-width: 600px) {
+    .poker-table-area {
+        height: 350px;
+        margin-bottom: 10px;
+    }
+    
+    .table-seat {
+        width: 60px;
+    }
+    
+    .seat-avatar img {
+        width: 35px;
+        height: 35px;
+        border-width: 2px;
+    }
+    
+    .seat-info {
+        font-size: 0.65em;
+        padding: 2px 4px;
+        min-width: 50px;
+    }
+    
+    .seat-name {
+        max-width: 55px;
+    }
+
+    .seat-bet {
+        font-size: 0.65em;
+        top: -20px;
+        padding: 1px 5px;
+    }
+
+    /* Smaller central area */
+    .table-center-content {
+        width: 70%;
+        gap: 8px;
+    }
+
+    .mp-pot-info {
+        font-size: 0.9em;
+        padding: 3px 10px;
+    }
+
+    #mp-community-cards .card {
+        width: 35px;
+        height: 50px;
+        font-size: 0.9em;
+        border-radius: 3px;
+    }
+
+    .mp-message {
+        font-size: 0.75em;
+        max-width: 90%;
+        line-height: 1.2;
+    }
+    
+    /* Adjust my hand position */
+    #mp-my-hand {
+        bottom: 5%;
+    }
+    
+    #mp-my-hand .card {
+        width: 50px;
+        height: 70px;
+        font-size: 1.1em;
+    }
+
+    /* Compact controls */
+    .controls {
+        gap: 8px;
+    }
+    
+    button {
+        padding: 8px 12px;
+        font-size: 0.9em;
+    }
+    
+    .header h1 {
+        font-size: 1.2em;
+        margin-bottom: 5px;
+    }
 }
