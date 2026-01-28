@@ -490,7 +490,8 @@ class Game {
             }
 
             const data = await response.json();
-            alert(`成功加入房间！身份: ${data.role === 'host' ? '房主' : '玩家'}`);
+            // alert(`成功加入房间！身份: ${data.role === 'host' ? '房主' : '玩家'}`); // Removed blocking alert
+            this.log(`成功加入房间！身份: ${data.role === 'host' ? '房主' : '玩家'}`);
             
             // Switch to Multiplayer Mode
             this.mode = 'multi';
@@ -500,7 +501,9 @@ class Game {
             document.getElementById('multiplayer-lobby').style.display = 'none';
             document.getElementById('game-ui').style.display = 'block';
             
-            this.ui.gameTitle.textContent = `多人对战 (${this.roomId})`;
+            if (this.ui.gameTitle) {
+                this.ui.gameTitle.textContent = `多人对战 (${this.roomId})`;
+            }
             
             // Clear single player AI area and show table
             document.getElementById('ai-area').style.display = 'none';
