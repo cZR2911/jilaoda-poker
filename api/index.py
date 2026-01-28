@@ -51,6 +51,8 @@ class Room(Base):
     status = Column(String, default='waiting')
     player1 = Column(String) # Host
     player2 = Column(String, nullable=True) # Challenger
+    game_state = Column(String, nullable=True) # JSON String of current game state
+    last_action = Column(String, nullable=True) # JSON String of last action taken
 
 # SAFELY Create Tables
 # Wrapping this in try/except prevents the 500 Error during module import
@@ -232,3 +234,18 @@ def join_room(data: RoomJoin, db: Session = Depends(get_db)):
     room.status = 'playing'
     db.commit()
     return {"message": "Joined room", "role": "guest"}
+
+@app.get("/rooms/{room_id}/status")
+def get_room_status(room_id: str, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    return {
+        "id": room.id,
+        "status": room.status,
+        "player1": room.player1,
+        "player2": room.player2,
+        "game_state": room.game_state,
+        "last_action": room.last_action
+    }

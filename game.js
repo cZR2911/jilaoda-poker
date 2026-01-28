@@ -485,17 +485,60 @@ class Game {
             const data = await response.json();
             alert(`成功加入房间！身份: ${data.role === 'host' ? '房主' : '挑战者'}`);
             
-            // Start Multiplayer Game UI (For now, just jump to AI game UI but with a label)
+            // Switch to Multiplayer Mode
+            this.mode = 'multi';
+            this.roomId = roomId;
+            this.role = data.role;
+            
             document.getElementById('multiplayer-lobby').style.display = 'none';
             document.getElementById('game-ui').style.display = 'block';
             
-            // TODO: Real multiplayer logic
-            this.log(`[多人模式] 已进入房间。等待对手或开始游戏... (当前为演示模式，仍是 AI)`);
-            this.ui.gameTitle.textContent = `多人对战 (演示版)`;
+            this.ui.gameTitle.textContent = `多人对战 (${this.roomId})`;
+            this.ui.aiName.textContent = "等待对手...";
+            this.ui.aiAvatar.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=Waiting";
+            
+            // Disable AI Logic
+            this.log(`[多人模式] 已进入房间。等待对手加入...`);
+            
+            // Start Polling
+            this.startMultiplayerPolling();
             
         } catch (e) {
             alert("加入房间失败: " + e.message);
         }
+    }
+
+    async startMultiplayerPolling() {
+        if (this.pollingInterval) clearInterval(this.pollingInterval);
+        
+        this.pollingInterval = setInterval(async () => {
+            if (this.mode !== 'multi') return;
+            
+            try {
+                const res = await fetch(`${this.serverUrl}/rooms/${this.roomId}/status`);
+                if (!res.ok) return;
+                const status = await res.json();
+                
+                // Update Opponent Info
+                if (status.player2 && this.role === 'host') {
+                    if (this.ui.aiName.textContent !== status.player2) {
+                        this.ui.aiName.textContent = status.player2;
+                        this.log(`玩家 ${status.player2} 已加入！`);
+                        this.ui.aiAvatar.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + status.player2;
+                    }
+                } else if (status.player1 && this.role === 'guest') {
+                    if (this.ui.aiName.textContent !== status.player1) {
+                        this.ui.aiName.textContent = status.player1;
+                        this.ui.aiAvatar.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + status.player1;
+                    }
+                }
+                
+                // TODO: Sync Game State (chips, cards, etc.)
+                
+            } catch (e) {
+                console.error("Polling error:", e);
+            }
+        }, 2000);
     }
 
     initCheatUI() {
