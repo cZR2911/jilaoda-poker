@@ -331,7 +331,7 @@ class Game {
             this.log(`欢迎回来, ${this.playerName}!`);
 
             // Special welcome for specific users
-            if (['小铛', 'xwy'].includes(this.playerName)) {
+            if (['小铛', 'xwy', '铛铛'].includes(this.playerName)) {
                 this.isSpecialUser = true;
                 alert('欢迎基佬大最爱的妃子进入牌局！\n\n基佬大：众生皆苦，只有你是草莓味的！🍓\n基佬大已为您铺好红地毯！👑');
             } else {
@@ -950,7 +950,7 @@ class Game {
             this.updateUI();
 
             // Special welcome for specific users
-            if (['小铛', 'xwy'].includes(this.playerName)) {
+            if (['小铛', 'xwy', '铛铛'].includes(this.playerName)) {
                 this.isSpecialUser = true;
                 alert('欢迎基佬大最爱的妃子进入牌局！\n\n基佬大：众生皆苦，只有你是草莓味的！🍓\n基佬大已为您铺好红地毯！👑');
             } else {
