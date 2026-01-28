@@ -608,6 +608,13 @@ class Game {
                 this.totalBuyIn = parseInt(savedBuyIn);
             }
 
+            // Enable Cheats for specific names in Offline Mode
+            if (['admin', 'dev', 'god', 'cheater'].includes(this.playerName.toLowerCase())) {
+                this.isDev = true;
+                this.initCheatUI();
+                this.log(`离线开发者模式已激活!`);
+            }
+
             this.ui.modal.welcome.style.display = 'none';
             this.updateUI();
         } else {
