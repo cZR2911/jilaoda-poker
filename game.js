@@ -541,44 +541,25 @@ class Game {
         }
     }
 
-    renderMultiplayerTable(players) {
+    renderMultiplayerTable(playerNames, playerDetails = null) {
         const tableArea = document.getElementById('poker-table-area');
         if (!tableArea) return;
         
         tableArea.innerHTML = ''; // Clear and redraw
         
-        // Calculate positions for up to 10 players
-        // We are at bottom (index 0 relative to us). 
-        // Others are arranged in a circle.
-        
         const totalSeats = 10;
-        const centerX = 50; // %
-        const centerY = 50; // %
-        const radiusX = 40; // %
-        const radiusY = 35; // %
+        const centerX = 50; 
+        const centerY = 50; 
+        const radiusX = 40; 
+        const radiusY = 35; 
         
-        // Find my index to rotate table so I am at bottom
-        const myIndex = players.indexOf(this.playerName);
-        const mySeatIndex = myIndex === -1 ? 0 : myIndex; // If spectator, 0
+        const myIndex = playerNames.indexOf(this.playerName);
+        const mySeatIndex = myIndex === -1 ? 0 : myIndex;
         
-        players.forEach((p, i) => {
-            if (p === this.playerName) return; // Don't render self on table (self is at bottom fixed UI)
-            
-            // Calculate relative position
-            // Seat 0 is bottom. Seat 5 is top.
-            // If I am seat 2, I want seat 2 to be at bottom.
-            // visualIndex = (i - mySeatIndex + totalSeats) % totalSeats
-            // Wait, we want to distribute 'players.length' players? Or fixed 10 seats?
-            // Let's use fixed 10 seats logic for visual stability.
-            // But we don't know seat numbers yet, just order of joining.
-            // Let's assume order of joining = seat number for now.
+        playerNames.forEach((p, i) => {
+            if (p === this.playerName) return; 
             
             const relativeIndex = (i - mySeatIndex + totalSeats) % totalSeats;
-            
-            // Angle: Start from bottom (90 deg) and go clockwise? 
-            // Standard CSS coords: 0 is right, 90 is down.
-            // We want bottom to be 90deg.
-            // 10 players -> 36deg per player.
             const angleDeg = 90 + (relativeIndex * (360 / totalSeats));
             const angleRad = angleDeg * (Math.PI / 180);
             
@@ -590,13 +571,26 @@ class Game {
             seat.style.left = `${x}%`;
             seat.style.top = `${y}%`;
             
+            let chipsText = '???';
+            let betText = '';
+            let statusClass = '';
+            
+            if (playerDetails && playerDetails[i]) {
+                const pd = playerDetails[i];
+                chipsText = pd.chips;
+                if (pd.current_bet > 0) betText = `下注: ${pd.current_bet}`;
+                if (pd.is_folded) statusClass = 'folded';
+                // TODO: Add 'acting' class if it's their turn
+            }
+
             seat.innerHTML = `
-                <div class="seat-avatar">
+                <div class="seat-avatar ${statusClass}">
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${p}" alt="${p}">
                 </div>
                 <div class="seat-info">
                     <div class="seat-name">${p}</div>
-                    <div class="seat-chips">???</div>
+                    <div class="seat-chips">💰 ${chipsText}</div>
+                    ${betText ? `<div class="seat-bet">${betText}</div>` : ''}
                 </div>
             `;
             
@@ -618,11 +612,15 @@ class Game {
                 // Update Title
                 this.ui.gameTitle.textContent = `多人对战 (ID:${status.id}) - ${status.player_count}/10人`;
                 
-                // Render Table
-                this.renderMultiplayerTable(status.players);
+                // Sync Game State if active
+                if (status.status === 'playing' && status.game_state) {
+                    this.syncGameState(status.game_state);
+                } else {
+                    // Render Lobby Table
+                    this.renderMultiplayerTable(status.players);
+                }
                 
                 // Log new players
-                // (Simplified: just log count change)
                 if (this.lastPlayerCount && status.player_count > this.lastPlayerCount) {
                      this.log(`新玩家加入！当前人数: ${status.player_count}`);
                 }
@@ -632,6 +630,27 @@ class Game {
                 console.error("Polling error:", e);
             }
         }, 2000);
+    }
+
+    syncGameState(gs) {
+        // Find my data in players list
+        const me = gs.players.find(p => p.name === this.playerName);
+        if (me) {
+            this.playerCards = me.hole_cards.map(c => new Card(c.suit, c.rank));
+            this.playerChips = me.chips;
+            this.playerBet = me.current_bet;
+            this.isPlayerTurn = (gs.players[gs.turn_index].name === this.playerName);
+        }
+
+        this.communityCards = gs.community_cards.map(c => new Card(c.suit, c.rank));
+        this.pot = gs.pot;
+        this.currentBet = gs.current_bet;
+        this.phase = gs.phase;
+
+        this.updateUI();
+        
+        // Render other players on table
+        this.renderMultiplayerTable(gs.players.map(p => p.name), gs.players);
     }
 
     initCheatUI() {
@@ -921,7 +940,26 @@ class Game {
         this.startGame();
     }
 
-    startGame() {
+    async startGame() {
+        if (this.mode === 'multi') {
+            if (this.role === 'host') {
+                try {
+                    const response = await fetch(`${this.serverUrl}/rooms/${this.roomId}/start`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: this.playerName })
+                    });
+                    if (!response.ok) throw new Error("无法开始游戏");
+                    this.log("游戏开始请求已发送！");
+                } catch (e) {
+                    alert(e.message);
+                }
+            } else {
+                alert("请等待房主开始游戏");
+            }
+            return;
+        }
+
         if (this.playerChips <= 0) {
             this.log("请先带入筹码。");
             this.openBuyInModal();
@@ -1012,8 +1050,32 @@ class Game {
         return names[phase] || phase;
     }
 
-    playerAction(action) {
+    async playerAction(action) {
         if (!this.isPlayerTurn) return;
+
+        if (this.mode === 'multi') {
+            const amount = (action === 'raise') ? parseInt(this.ui.raiseControls.slider.value) : 0;
+            try {
+                const response = await fetch(`${this.serverUrl}/rooms/${this.roomId}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        username: this.playerName, 
+                        action: action,
+                        amount: amount
+                    })
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || "操作失败");
+                }
+                this.isPlayerTurn = false;
+                this.updateButtons();
+            } catch (e) {
+                alert(e.message);
+            }
+            return;
+        }
 
         switch (action) {
             case 'fold':

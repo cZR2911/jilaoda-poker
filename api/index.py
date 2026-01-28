@@ -24,6 +24,78 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import json
+from typing import Optional, List, Dict
+
+# Poker Helper Functions
+def evaluate_hand(cards):
+    """
+    Simplified hand evaluator.
+    Cards is a list of {'suit': 'h', 'rank': 14}
+    Returns a score (higher is better).
+    """
+    if not cards: return 0
+    ranks = sorted([c['rank'] for c in cards], reverse=True)
+    
+    # Check for Flush
+    suits = {}
+    for c in cards:
+        suits[c['suit']] = suits.get(c['suit'], 0) + 1
+    
+    is_flush = any(count >= 5 for count in suits.values())
+    
+    # Check for Straight
+    unique_ranks = sorted(list(set(ranks)), reverse=True)
+    is_straight = False
+    best_straight = 0
+    if len(unique_ranks) >= 5:
+        for i in range(len(unique_ranks) - 4):
+            if unique_ranks[i] - unique_ranks[i+4] == 4:
+                is_straight = True
+                best_straight = unique_ranks[i]
+                break
+        # Ace low straight
+        if 14 in unique_ranks and set([5,4,3,2]).issubset(set(unique_ranks)):
+            is_straight = True
+            best_straight = 5
+            
+    # Counts
+    counts = {}
+    for r in ranks:
+        counts[r] = counts.get(r, 0) + 1
+    
+    sorted_counts = sorted(counts.items(), key=lambda x: (x[1], x[0]), reverse=True)
+    
+    # Scoring: Rank (0-8) * 10^10 + Kickers
+    # 8: Straight Flush
+    if is_flush and is_straight: return 8 * 10**10 + best_straight
+    
+    # 7: Quads
+    if sorted_counts[0][1] == 4: return 7 * 10**10 + sorted_counts[0][0]
+    
+    # 6: Full House
+    if sorted_counts[0][1] == 3 and len(sorted_counts) > 1 and sorted_counts[1][1] >= 2:
+        return 6 * 10**10 + sorted_counts[0][0]
+        
+    # 5: Flush
+    if is_flush: return 5 * 10**10 + ranks[0]
+    
+    # 4: Straight
+    if is_straight: return 4 * 10**10 + best_straight
+    
+    # 3: Trips
+    if sorted_counts[0][1] == 3: return 3 * 10**10 + sorted_counts[0][0]
+    
+    # 2: Two Pair
+    if sorted_counts[0][1] == 2 and len(sorted_counts) > 1 and sorted_counts[1][1] == 2:
+        return 2 * 10**10 + sorted_counts[0][0] * 100 + sorted_counts[1][0]
+        
+    # 1: Pair
+    if sorted_counts[0][1] == 2: return 1 * 10**10 + sorted_counts[0][0]
+    
+    # 0: High Card
+    return ranks[0]
+
 # Database Configuration
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
@@ -110,6 +182,11 @@ class RoomCreate(BaseModel):
 class RoomJoin(BaseModel):
     username: str
     room_id: str
+
+class RoomAction(BaseModel):
+    username: str
+    action: str # 'fold', 'check', 'call', 'raise'
+    amount: Optional[int] = 0
 
 class RoomList(BaseModel):
     id: str
@@ -284,6 +361,137 @@ def get_room_status(room_id: str, db: Session = Depends(get_db)):
         "players": players,
         "player_count": len(players),
         "max_players": room.max_players,
-        "game_state": room.game_state,
-        "last_action": room.last_action
+        "game_state": json.loads(room.game_state) if room.game_state else None,
+        "last_action": json.loads(room.last_action) if room.last_action else None
     }
+
+@app.post("/rooms/{room_id}/start")
+def start_game(room_id: str, data: dict, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    if room.host != data.get('username'):
+        raise HTTPException(status_code=403, detail="Only host can start game")
+    
+    players = json.loads(room.players_json)
+    if len(players) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 players")
+    
+    # Initialize Game State
+    deck = []
+    suits = ['h', 'd', 'c', 's']
+    for s in suits:
+        for r in range(2, 15):
+            deck.append({'suit': s, 'rank': r})
+    random.shuffle(deck)
+    
+    game_players = []
+    for p_name in players:
+        # Get chips from DB for each player
+        user = db.query(User).filter(User.username == p_name).first()
+        chips = user.chips if user else 1000
+        game_players.append({
+            "name": p_name,
+            "chips": chips,
+            "hole_cards": [deck.pop(), deck.pop()],
+            "current_bet": 0,
+            "is_folded": False,
+            "is_out": chips <= 0
+        })
+    
+    game_state = {
+        "phase": "preflop",
+        "pot": 0,
+        "current_bet": 0,
+        "turn_index": 0, # Host starts? Or Big Blind? For now, index 0.
+        "community_cards": [],
+        "players": game_players,
+        "deck": deck # Store remaining deck
+    }
+    
+    room.status = 'playing'
+    room.game_state = json.dumps(game_state)
+    db.commit()
+    return {"message": "Game started", "game_state": game_state}
+
+@app.post("/rooms/{room_id}/action")
+def player_action(room_id: str, action_data: RoomAction, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room or not room.game_state:
+        raise HTTPException(status_code=404, detail="Game not active")
+    
+    gs = json.loads(room.game_state)
+    players = gs['players']
+    turn_idx = gs['turn_index']
+    
+    if players[turn_idx]['name'] != action_data.username:
+        raise HTTPException(status_code=400, detail="Not your turn")
+    
+    current_player = players[turn_idx]
+    
+    # Process Action
+    if action_data.action == 'fold':
+        current_player['is_folded'] = True
+    elif action_data.action == 'call':
+        diff = gs['current_bet'] - current_player['current_bet']
+        current_player['chips'] -= diff
+        current_player['current_bet'] += diff
+        gs['pot'] += diff
+    elif action_data.action == 'raise':
+        total_bet = action_data.amount
+        diff = total_bet - current_player['current_bet']
+        current_player['chips'] -= diff
+        current_player['current_bet'] = total_bet
+        gs['pot'] += diff
+        gs['current_bet'] = total_bet
+    elif action_data.action == 'check':
+        if current_player['current_bet'] < gs['current_bet']:
+             raise HTTPException(status_code=400, detail="Cannot check, must call or fold")
+    
+    # Next Turn
+    num_players = len(players)
+    gs['turn_index'] = (turn_idx + 1) % num_players
+    
+    # Check if phase over (simplified: everyone acted once and bets equal)
+    # For a real game, this needs more complex logic (tracking who raised).
+    # Let's just move phase if we reach index 0 again for now.
+    if gs['turn_index'] == 0:
+        if gs['phase'] == 'preflop':
+            gs['phase'] = 'flop'
+            gs['community_cards'].extend([gs['deck'].pop() for _ in range(3)])
+        elif gs['phase'] == 'flop':
+            gs['phase'] = 'turn'
+            gs['community_cards'].append(gs['deck'].pop())
+        elif gs['phase'] == 'turn':
+            gs['phase'] = 'river'
+            gs['community_cards'].append(gs['deck'].pop())
+        elif gs['phase'] == 'river':
+            gs['phase'] = 'showdown'
+            # Determine winner
+            best_score = -1
+            winner_name = ""
+            for p in players:
+                if not p['is_folded']:
+                    score = evaluate_hand(p['hole_cards'] + gs['community_cards'])
+                    if score > best_score:
+                        best_score = score
+                        winner_name = p['name']
+            
+            # Award pot
+            for p in players:
+                if p['name'] == winner_name:
+                    p['chips'] += gs['pot']
+                    # Update chips in User table too
+                    user = db.query(User).filter(User.username == p['name']).first()
+                    if user:
+                        user.chips = p['chips']
+                    break
+            
+            gs['winner'] = winner_name
+             room.status = 'waiting' # Reset room status to allow next game
+             
+    room.game_state = json.dumps(gs)
+    room.last_action = json.dumps({"player": action_data.username, "action": action_data.action})
+    db.commit()
+    return {"status": "success", "game_state": gs}
