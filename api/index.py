@@ -45,7 +45,7 @@ class User(Base):
     chips = Column(Integer, default=1000)
 
 class Room(Base):
-    __tablename__ = "rooms"
+    __tablename__ = "rooms_v3"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4())[:8])
     name = Column(String)
     host = Column(String)

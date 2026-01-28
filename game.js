@@ -506,7 +506,15 @@ class Game {
             }
             
             // Clear single player AI area and show table
-            document.getElementById('ai-area').style.display = 'none';
+            const aiArea = document.getElementById('ai-area');
+            if (aiArea) aiArea.style.display = 'none';
+            
+            // Hide Start Button for guest initially or change text
+            if (this.role !== 'host') {
+                this.ui.buttons.start.style.display = 'none';
+            } else {
+                this.ui.buttons.start.textContent = '开始对局 (开发中)';
+            }
             
             // Create or Show Table Area
             let tableArea = document.getElementById('poker-table-area');
