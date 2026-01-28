@@ -478,8 +478,15 @@ class Game {
             });
             
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.detail || "加入失败");
+                // Try to parse JSON error, fallback to text
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const err = await response.json();
+                    throw new Error(err.detail || "加入失败");
+                } else {
+                    const text = await response.text();
+                    throw new Error(`服务器错误 (${response.status}): ${text.substring(0, 100)}`);
+                }
             }
 
             const data = await response.json();

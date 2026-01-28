@@ -195,16 +195,27 @@ def admin_reset_password(reset: AdminReset, db: Session = Depends(get_db)):
 @app.get("/rooms", response_model=List[RoomList])
 def get_rooms(db: Session = Depends(get_db)):
     rooms = db.query(Room).filter(Room.status == 'waiting').all()
-    return [
-        RoomList(
+    result = []
+    for r in rooms:
+        # Calculate current players count safely
+        try:
+            current_players = len(json.loads(r.players_json)) if r.players_json else 0
+            # Fallback for legacy records if any
+            if current_players == 0 and r.player1:
+                current_players = 1
+                if r.player2:
+                    current_players = 2
+        except:
+            current_players = 0
+            
+        result.append(RoomList(
             id=r.id, 
             name=r.name, 
             host=r.host, 
             status=r.status, 
-            players=1 if not r.player2 else 2
-        ) 
-        for r in rooms
-    ]
+            players=current_players
+        ))
+    return result
 
 @app.post("/rooms/create")
 def create_room(data: RoomCreate, db: Session = Depends(get_db)):
