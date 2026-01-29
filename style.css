@@ -341,31 +341,34 @@ button {
 .status-badge.online { background-color: #2ecc71; }
 .status-badge.offline { background-color: #95a5a6; }
 
-/* Poker Table Layout - Optimized */
+/* Poker Table Layout - Optimized for "Simple & Clear" */
 .poker-table-area {
     position: relative;
     width: 100%;
-    height: 450px; /* Increased height for better spacing */
+    height: 500px; /* Increased height */
     margin-bottom: 20px;
     display: none;
     perspective: 1000px;
+    background: #202020; /* Dark background behind table */
+    border-radius: 15px;
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+    overflow: hidden;
 }
 
 .table-felt {
-    width: 95%;
-    height: 90%;
-    background: radial-gradient(ellipse at center, #27ae60 0%, #145a32 100%);
+    width: 90%;
+    height: 80%;
+    background: #35654d; /* Flat, clean green */
     border-radius: 200px;
-    border: 15px solid #5d4037; /* Wood border */
-    box-shadow: 
-        inset 0 0 50px rgba(0,0,0,0.8),
-        0 10px 30px rgba(0,0,0,0.5);
+    border: 8px solid #4e342e; /* Thinner, simpler border */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     position: absolute;
-    top: 50%;
+    top: 45%; /* Slightly higher to leave room for own cards */
     left: 50%;
     transform: translate(-50%, -50%);
 }
 
+/* Center Content - Focused on Community Cards & Pot */
 .table-center-content {
     position: absolute;
     top: 50%;
@@ -375,215 +378,181 @@ button {
     flex-direction: column;
     align-items: center;
     gap: 15px;
-    width: 60%;
+    width: 70%;
     z-index: 5;
 }
 
 .mp-pot-info {
-    background: rgba(0, 0, 0, 0.6);
-    padding: 5px 15px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 20px;
     border-radius: 20px;
     border: 1px solid #f1c40f;
-    font-size: 1.2em;
+    font-size: 1.4em;
     font-weight: bold;
-    color: white;
+    color: #f1c40f;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+#mp-community-cards {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    background: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-radius: 10px;
+}
+
+#mp-community-cards .card {
+    width: 60px;
+    height: 84px;
+    font-size: 1.4em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
 }
 
 .mp-message {
-    font-size: 0.9em;
-    color: rgba(255, 255, 255, 0.8);
-    background: rgba(0,0,0,0.4);
-    padding: 2px 8px;
-    border-radius: 4px;
-    text-align: center;
+    font-size: 1.1em;
+    color: #ecf0f1;
+    text-shadow: 1px 1px 2px black;
+    background: rgba(0,0,0,0.5);
+    padding: 5px 15px;
+    border-radius: 15px;
 }
 
+/* Seats - Cleaner Look */
 .table-seat {
     position: absolute;
     transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 80px;
+    width: 90px;
     z-index: 10;
-    transition: all 0.3s ease;
 }
 
 .seat-avatar {
     position: relative;
+    z-index: 2;
 }
 
 .seat-avatar img {
-    width: 50px;
-    height: 50px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     border: 3px solid #bdc3c7;
     background: #fff;
-    transition: border-color 0.3s, transform 0.3s;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    transition: all 0.3s ease;
 }
 
 .seat-avatar.active img {
     border-color: #f1c40f;
-    box-shadow: 0 0 15px #f1c40f;
-    transform: scale(1.1);
+    box-shadow: 0 0 20px #f1c40f;
+    transform: scale(1.15);
 }
 
 .seat-avatar.folded img {
-    filter: grayscale(100%) opacity(0.6);
+    filter: grayscale(100%) opacity(0.5);
     border-color: #7f8c8d;
 }
 
-.seat-avatar.winner img {
-    border-color: #2ecc71;
-    box-shadow: 0 0 20px #2ecc71;
-    animation: bounce 1s infinite;
-}
-
-@keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-}
-
 .seat-info {
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(30, 30, 30, 0.9);
     padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 0.8em;
+    border-radius: 4px;
+    font-size: 0.85em;
     color: white;
     text-align: center;
-    margin-top: -12px;
-    z-index: 12;
-    border: 1px solid #7f8c8d;
-    min-width: 70px;
+    margin-top: -10px;
+    z-index: 3;
+    border: 1px solid #555;
+    min-width: 80px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .seat-name {
     font-weight: bold;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 75px;
     color: #ecf0f1;
+    margin-bottom: 2px;
 }
 
 .seat-chips { 
     color: #f1c40f; 
-    font-size: 0.9em;
+    font-size: 0.95em;
 }
 
+/* Betting Badge - Distinct & Clear */
 .seat-bet {
     position: absolute;
-    top: -25px; /* Position above the player */
-    background: #f39c12;
-    color: #2c3e50;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.8em;
+    top: -30px;
+    background: linear-gradient(135deg, #f39c12, #d35400);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 0.9em;
     font-weight: bold;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
     white-space: nowrap;
-    z-index: 15;
+    z-index: 20;
+    border: 1px solid #e67e22;
 }
 
-/* Make community cards smaller in MP table if needed */
-#mp-community-cards .card {
-    width: 50px;
-    height: 70px;
-    font-size: 1.2em;
+/* My Hand - Prominent & "In Hand" feel */
+#mp-my-hand {
+    position: absolute;
+    bottom: 20px; /* Moved up slightly */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 30;
+    display: flex;
+    gap: 15px; /* More spacing */
+    filter: drop-shadow(0 -5px 15px rgba(0,0,0,0.5));
 }
 
-.version-display {
-    position: fixed;
-    bottom: 5px;
-    right: 5px;
-    font-size: 0.8em;
-    color: rgba(255, 255, 255, 0.3);
-    pointer-events: none;
-    z-index: 50;
+#mp-my-hand .card {
+    width: 90px; /* Large */
+    height: 126px;
+    font-size: 2em;
+    border: 2px solid #3498db; /* Highlight own cards */
+    transform-origin: bottom center;
+    transition: transform 0.2s;
+}
+
+#mp-my-hand .card:hover {
+    transform: translateY(-20px) scale(1.1);
 }
 
 /* Mobile Optimization */
 @media (max-width: 600px) {
     .poker-table-area {
-        height: 350px;
-        margin-bottom: 10px;
+        height: 400px;
     }
     
-    .table-seat {
-        width: 60px;
+    .table-felt {
+        width: 96%;
+        height: 75%;
+        top: 45%;
     }
+
+    /* Smaller seats on mobile */
+    .table-seat { width: 70px; }
+    .seat-avatar img { width: 42px; height: 42px; }
+    .seat-info { font-size: 0.7em; min-width: 60px; }
     
-    .seat-avatar img {
-        width: 35px;
-        height: 35px;
-        border-width: 2px;
-    }
-    
-    .seat-info {
-        font-size: 0.65em;
-        padding: 2px 4px;
-        min-width: 50px;
-    }
-    
-    .seat-name {
-        max-width: 55px;
-    }
-
-    .seat-bet {
-        font-size: 0.65em;
-        top: -20px;
-        padding: 1px 5px;
-    }
-
-    /* Smaller central area */
-    .table-center-content {
-        width: 70%;
-        gap: 8px;
-    }
-
-    .mp-pot-info {
-        font-size: 0.9em;
-        padding: 3px 10px;
-    }
-
+    /* Community Cards mobile */
     #mp-community-cards .card {
-        width: 35px;
-        height: 50px;
-        font-size: 0.9em;
-        border-radius: 3px;
-    }
-
-    .mp-message {
-        font-size: 0.75em;
-        max-width: 90%;
-        line-height: 1.2;
+        width: 40px;
+        height: 56px;
+        font-size: 1em;
     }
     
-    /* Adjust my hand position */
-    #mp-my-hand {
-        bottom: 5%;
-    }
-    
+    /* My Hand mobile */
+    #mp-my-hand { bottom: 10px; gap: 8px; }
     #mp-my-hand .card {
-        width: 50px;
-        height: 70px;
-        font-size: 1.1em;
+        width: 70px;
+        height: 98px;
+        font-size: 1.5em;
     }
 
-    /* Compact controls */
-    .controls {
-        gap: 8px;
-    }
-    
-    button {
-        padding: 8px 12px;
-        font-size: 0.9em;
-    }
-    
-    .header h1 {
-        font-size: 1.2em;
-        margin-bottom: 5px;
-    }
+    .mp-pot-info { font-size: 1.1em; padding: 4px 12px; }
+    .seat-bet { font-size: 0.75em; top: -25px; padding: 2px 6px; }
 }
