@@ -555,4 +555,18 @@ button {
 
     .mp-pot-info { font-size: 1.1em; padding: 4px 12px; }
     .seat-bet { font-size: 0.75em; top: -25px; padding: 2px 6px; }
+
+    .header h1 {
+        display: none;
+    }
+
+    .version-display {
+        font-size: 0.6em;
+        opacity: 0.2;
+        padding: 2px 5px;
+        bottom: 2px;
+        right: 2px;
+        background: transparent;
+        border: none;
+    }
 }
