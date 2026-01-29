@@ -425,14 +425,14 @@ class Game {
 
             rooms.forEach(room => {
                 const el = document.createElement('div');
-                el.className = `room-item ${room.players >= 2 ? 'full' : ''}`;
+                el.className = `room-item ${room.players >= 10 ? 'full' : ''}`;
                 el.innerHTML = `
                     <div class="room-info">
                         <h4>${room.name}</h4>
                         <p>房主: ${room.host} | 状态: ${room.status === 'waiting' ? '等待中' : '游戏中'}</p>
                     </div>
-                    <button class="action-btn" onclick="game.joinRoom('${room.id}')" ${room.players >= 2 ? 'disabled' : ''}>
-                        ${room.players >= 2 ? '已满' : '加入'}
+                    <button class="action-btn" onclick="game.joinRoom('${room.id}')" ${room.players >= 10 ? 'disabled' : ''}>
+                        ${room.players >= 10 ? '已满' : '加入'}
                     </button>
                 `;
                 list.appendChild(el);
